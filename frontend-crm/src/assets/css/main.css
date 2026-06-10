@@ -1,0 +1,84 @@
+@import '@fontsource/be-vietnam-pro/400.css';
+@import '@fontsource/be-vietnam-pro/500.css';
+@import '@fontsource/be-vietnam-pro/600.css';
+@import '@fontsource/be-vietnam-pro/700.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Số trong table cần tabular nums để align cột */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scrollbar gọn — phong cách minimalist */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.line.base');
+    border-radius: 999px;
+    border: 2px solid theme('colors.paper.DEFAULT');
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.ink.40');
+  }
+
+  /* Focus ring chuẩn — emerald nhạt, không quá to */
+  :where(button, a, input, select, textarea, [role='button']):focus-visible {
+    outline: 2px solid theme('colors.brand.500');
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Container chuẩn nội dung trong AppShell */
+  .app-container {
+    @apply mx-auto w-full max-w-[1440px] px-6 lg:px-10;
+  }
+
+  /* Hairline divider chuẩn */
+  .hairline {
+    @apply border-line-soft;
+  }
+}
+
+@layer utilities {
+  /* Text balance cho heading dài */
+  .text-balance {
+    text-wrap: balance;
+  }
+}

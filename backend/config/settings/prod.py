@@ -48,6 +48,7 @@ CORS_ALLOWED_ORIGINS = env.list(
     default=[
         env.str("SITE_PUBLIC_URL", default=""),
         env.str("SITE_STUDENT_URL", default=""),
+        env.str("SITE_CRM_URL", default=""),
     ],
 )
 CORS_ALLOWED_ORIGINS = [u for u in CORS_ALLOWED_ORIGINS if u]

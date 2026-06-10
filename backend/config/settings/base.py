@@ -124,10 +124,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS
+# CORS — SPA CRM cần credentials để gửi session cookie + CSRF
 CORS_ALLOWED_ORIGINS = [
     SITE_PUBLIC_URL,
     SITE_STUDENT_URL,
+    SITE_CRM_URL,
 ]
 CORS_ALLOW_CREDENTIALS = True
 
