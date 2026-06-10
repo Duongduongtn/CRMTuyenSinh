@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --shadow-soft: 0 1px 2px rgba(15, 31, 26, 0.04), 0 2px 8px rgba(15, 31, 26, 0.06);
+    --shadow-md: 0 4px 16px rgba(15, 31, 26, 0.08);
+    --shadow-lg: 0 16px 48px rgba(15, 31, 26, 0.12);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased font-sans;
+    font-feature-settings: 'ss01', 'ss02', 'cv11';
+  }
+
+  ::selection {
+    background: #16A34A;
+    color: #fff;
+  }
+
+  /* Heading dấu tiếng Việt — tránh cắt phần dấu mũ */
+  h1, h2, h3, h4 {
+    padding-bottom: 0.1em;
+  }
+
+  /* Tabular nums cho số tiền/thống kê */
+  .num-display {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+  }
+}
+
+@layer components {
+  /* CTA primary — emerald */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-7 py-4 bg-ink hover:bg-brand-800 text-white font-medium text-base rounded-md transition-colors duration-300 ease-out-expo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2;
+  }
+  .btn-emerald {
+    @apply inline-flex items-center justify-center gap-2 px-7 py-4 bg-brand-700 hover:bg-brand-800 text-white font-medium text-base rounded-md transition-colors duration-300 ease-out-expo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2;
+  }
+  /* CTA secondary — border outline */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-7 py-4 border border-line-base hover:border-ink text-ink font-medium text-base rounded-md transition-colors duration-300 ease-out-expo;
+  }
+  /* Ghost link */
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-800 font-medium underline-offset-4 hover:underline;
+  }
+  /* Section eyebrow */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-wider text-brand-700;
+  }
+  /* Container shared */
+  .container-base {
+    @apply max-w-base mx-auto px-5 md:px-8;
+  }
+  /* Scroll reveal hook (set via VueUse useIntersectionObserver) */
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 550ms cubic-bezier(0.16, 1, 0.3, 1), transform 550ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Page transition cho NuxtPage */
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transition: opacity 150ms;
+    transform: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

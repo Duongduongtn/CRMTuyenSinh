@@ -163,6 +163,18 @@ CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 
+# Celery beat schedule — đăng ký task chạy theo cron.
+# Override interval qua env nếu cần (vd test cho chạy 30s).
+CELERY_BEAT_SCHEDULE = {
+    "reconcile-pending-payments": {
+        "task": "apps.payments.reconcile_pending_payments",
+        # Mặc định 5 phút/lần (300s). Override qua CELERY_RECONCILE_INTERVAL_SECONDS.
+        "schedule": env.int("CELERY_RECONCILE_INTERVAL_SECONDS", default=300),
+        "kwargs": {"lookback_hours": env.int("CELERY_RECONCILE_LOOKBACK_HOURS", default=24)},
+        "options": {"expires": 240},  # hết hạn trước lần kế (tránh task chồng nhau)
+    },
+}
+
 # Cache (default in-memory, override prod sang Redis)
 CACHES = {
     "default": {

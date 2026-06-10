@@ -339,3 +339,127 @@ class VietQRTests(TestCase):
         self.assertEqual(data["bank_code"], "BIDV")
         self.assertEqual(data["add_info"], result.enrollment.code)
         self.assertEqual(data["amount"], int(self.course.deposit_amount))
+
+
+class ReconcileTaskTests(TestCase):
+    """Test fallback cron `reconcile_pending_payments`.
+
+    Trường hợp test:
+    1. CassoTransaction unmatched (đến trước khi Enrollment được tạo) → sau khi
+       Enrollment ra đời + chạy task → Payment được tạo + paid_amount cập nhật.
+    2. Không có API key Casso → pull không gọi network (qua iter_recent_transactions).
+    3. Task idempotent — chạy 2 lần không tạo Payment trùng.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.sale_group, _ = Group.objects.get_or_create(name="sale")
+        cls.sale_user = User.objects.create_user(
+            username="sale_rc", password="x", full_name="Sale Reconcile"
+        )
+        cls.sale_user.groups.add(cls.sale_group)
+
+        cls.course = Course.objects.create(
+            slug="test-reconcile",
+            title="Test Reconcile",
+            vehicle_class=VehicleClass.B_MT,
+            vehicle_group=VehicleGroup.CAR,
+            tuition_fee=Decimal("10000000"),
+            deposit_amount=Decimal("1000000"),
+            total_slots=10,
+            available_slots=10,
+        )
+
+    def test_rematch_links_orphan_casso_tx_to_new_enrollment(self):
+        """Casso tx đã có matched_code nhưng matched_enrollment=null
+        (vì lúc webhook đến chưa có Enrollment) → task re-match thành công."""
+        # Tạo enrollment để lấy code
+        lead = Lead.objects.create(name="HV Re", phone="0907777777")
+        result = convert_lead_to_enrollment(
+            lead_id=lead.id, course_id=self.course.id, user=self.sale_user
+        )
+        enrollment = result.enrollment
+
+        # Tạo CassoTransaction giả lập "webhook đến trước" — matched_code đúng
+        # nhưng matched_enrollment=null (giống webhook fail vì DoesNotExist tại
+        # thời điểm xử lý).
+        orphan = CassoTransaction.objects.create(
+            tid="FT-ORPHAN-001",
+            description=f"NCK {enrollment.code}",
+            amount=Decimal("1000000"),
+            matched_code=enrollment.code,
+            matched_enrollment=None,
+        )
+        self.assertIsNone(orphan.matched_enrollment_id)
+
+        from .tasks import reconcile_pending_payments
+
+        summary = reconcile_pending_payments()
+        self.assertEqual(summary["rematched"], 1)
+
+        # Payment được tạo, link đúng CassoTransaction
+        payment = Payment.objects.get(casso_transaction=orphan)
+        self.assertEqual(payment.amount, Decimal("1000000"))
+        self.assertEqual(payment.reference_code, enrollment.code)
+
+        # Enrollment cập nhật paid_amount + status
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.paid_amount, Decimal("1000000"))
+        self.assertEqual(enrollment.status, EnrollmentStatus.DEPOSITED)
+
+        # CassoTransaction được mark matched_enrollment
+        orphan.refresh_from_db()
+        self.assertEqual(orphan.matched_enrollment_id, enrollment.id)
+        self.assertIsNotNone(orphan.matched_at)
+
+    def test_reconcile_idempotent_does_not_double_pay(self):
+        """Chạy task 2 lần liên tiếp không tạo Payment trùng."""
+        lead = Lead.objects.create(name="HV Idem", phone="0908888888")
+        result = convert_lead_to_enrollment(
+            lead_id=lead.id, course_id=self.course.id, user=self.sale_user
+        )
+        enrollment = result.enrollment
+
+        CassoTransaction.objects.create(
+            tid="FT-IDEM-002",
+            description=f"{enrollment.code}",
+            amount=Decimal("1000000"),
+            matched_code=enrollment.code,
+            matched_enrollment=None,
+        )
+
+        from .tasks import reconcile_pending_payments
+
+        reconcile_pending_payments()
+        reconcile_pending_payments()
+
+        # Vẫn chỉ 1 Payment cho casso tx này, paid_amount không cộng 2 lần
+        self.assertEqual(Payment.objects.filter(bank_tx_id="FT-IDEM-002").count(), 1)
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.paid_amount, Decimal("1000000"))
+
+    def test_reconcile_skips_when_enrollment_still_missing(self):
+        """Casso tx có matched_code nhưng Enrollment vẫn chưa tồn tại
+        → task không crash, không tạo Payment, chờ lần chạy sau."""
+        CassoTransaction.objects.create(
+            tid="FT-NOENR-003",
+            description="NCK ORD-FFFFFF",
+            amount=Decimal("500000"),
+            matched_code="ORD-FFFFFF",
+            matched_enrollment=None,
+        )
+        from .tasks import reconcile_pending_payments
+
+        summary = reconcile_pending_payments()
+        # rematched count bao gồm cả những lần thử (ngay cả khi không link được)
+        self.assertGreaterEqual(summary["rematched"], 1)
+        self.assertEqual(Payment.objects.filter(bank_tx_id="FT-NOENR-003").count(), 0)
+
+    def test_reconcile_no_casso_api_key_skips_pull(self):
+        """CASSO_API_KEY rỗng → không gọi network, pulled=0."""
+        from .tasks import reconcile_pending_payments
+
+        with override_settings(CASSO_API_KEY=""):
+            summary = reconcile_pending_payments()
+        self.assertEqual(summary["pulled"], 0)
+        self.assertEqual(summary["matched_from_pull"], 0)

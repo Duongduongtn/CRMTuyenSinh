@@ -9,6 +9,8 @@ from apps.payments.urls import webhook_urlpatterns as payments_webhooks
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include("apps.core.urls")),
+    path("api/", include("apps.courses.urls")),
     path("api/", include("apps.leads.urls")),
     path("api/", include("apps.orders.urls")),
     path("api/", include("apps.payments.urls")),
