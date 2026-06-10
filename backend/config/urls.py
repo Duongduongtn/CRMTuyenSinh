@@ -4,10 +4,16 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.payments.urls import webhook_urlpatterns as payments_webhooks
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.leads.urls")),
+    path("api/", include("apps.orders.urls")),
+    path("api/", include("apps.payments.urls")),
+    # Webhook server-to-server (root path, KHÔNG nằm trong /api/)
+    *payments_webhooks,
 ]
 
 if settings.DEBUG:

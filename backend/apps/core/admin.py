@@ -50,6 +50,20 @@ class SiteSettingsAdmin(SingletonModelAdmin, ModelAdmin):
             },
         ),
         (
+            "Tài khoản nhận đặt cọc (VietQR)",
+            {
+                "fields": (
+                    "bank_code",
+                    "bank_account_number",
+                    "bank_account_name",
+                ),
+                "description": (
+                    "Cấu hình tài khoản ngân hàng dùng cho QR đặt cọc. "
+                    "Cần liên kết với Casso để webhook tự đối soát."
+                ),
+            },
+        ),
+        (
             "Thông tin pháp lý",
             {"fields": ("license_info", "company_full_name", "tax_code")},
         ),

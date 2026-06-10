@@ -178,6 +178,43 @@ class Command(BaseCommand):
         admin_group.permissions.set(Permission.objects.all())
         self.stdout.write(f"  - Group 'admin' đã gán toàn bộ {Permission.objects.count()} permission.")
 
+        # Permission set tối thiểu cho sale (lead + enrollment view/add/change, payment view)
+        sale_group = Group.objects.get(name="sale")
+        sale_perms = Permission.objects.filter(
+            content_type__app_label__in=["leads", "orders"],
+            codename__in=[
+                "view_lead", "add_lead", "change_lead",
+                "view_leadcontact", "add_leadcontact",
+                "view_leadnote", "add_leadnote",
+                "view_leadreason",
+                "view_enrollment", "add_enrollment", "change_enrollment",
+            ],
+        )
+        sale_group.permissions.set(sale_perms)
+        self.stdout.write(f"  - Group 'sale' gán {sale_perms.count()} permission (lead + enrollment).")
+
+        # Kế toán: payment + casso tx + enrollment readonly
+        accountant_group = Group.objects.get(name="accountant")
+        acc_perms = Permission.objects.filter(
+            content_type__app_label__in=["payments", "orders"],
+            codename__in=[
+                "view_payment", "add_payment", "change_payment",
+                "view_cassotransaction",
+                "view_enrollment", "change_enrollment",
+            ],
+        )
+        accountant_group.permissions.set(acc_perms)
+        self.stdout.write(f"  - Group 'accountant' gán {acc_perms.count()} permission (payment + đơn).")
+
+        # Văn thư: enrollment view (in PDF Sprint 2)
+        clerk_group = Group.objects.get(name="clerk")
+        clerk_perms = Permission.objects.filter(
+            content_type__app_label__in=["orders", "leads"],
+            codename__in=["view_enrollment", "view_lead"],
+        )
+        clerk_group.permissions.set(clerk_perms)
+        self.stdout.write(f"  - Group 'clerk' gán {clerk_perms.count()} permission (đơn read-only).")
+
         # 2. Courses
         self.stdout.write("\n[2/3] Tạo 9 khóa học theo Luật 2025...")
         for spec in COURSES_SPEC:

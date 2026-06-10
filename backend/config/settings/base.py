@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.courses",
     "apps.leads",
+    "apps.orders",
+    "apps.payments",
 ]
 
 MIDDLEWARE = [
@@ -149,6 +151,7 @@ REST_FRAMEWORK = {
         "anon": "60/minute",
         "user": "300/minute",
         "lead_capture": "30/hour",   # chống spam form
+        "deposit_link": "30/minute", # chống enum đơn qua public deposit endpoint
     },
 }
 

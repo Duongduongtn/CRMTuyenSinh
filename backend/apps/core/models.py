@@ -111,6 +111,29 @@ class SiteSettings(SingletonModel):
     youtube_url = models.URLField(_("YouTube"), blank=True)
     tiktok_url = models.URLField(_("TikTok"), blank=True)
 
+    # Ngân hàng nhận đặt cọc (dùng cho VietQR generator)
+    bank_code = models.CharField(
+        _("Mã ngân hàng (VietQR)"),
+        max_length=20,
+        blank=True,
+        default="BIDV",
+        help_text=_("Mã chuẩn NAPAS: BIDV, VCB, TCB, VPB, MB, ACB... Xem napas.com.vn."),
+    )
+    bank_account_number = models.CharField(
+        _("Số tài khoản nhận"),
+        max_length=30,
+        blank=True,
+        default="",
+        help_text=_("TK liên kết với Casso để nhận chuyển khoản đặt cọc."),
+    )
+    bank_account_name = models.CharField(
+        _("Tên chủ TK"),
+        max_length=200,
+        blank=True,
+        default="",
+        help_text=_("Viết hoa không dấu, đúng tên trên CMND chủ tài khoản."),
+    )
+
     # Pháp lý
     license_info = models.CharField(
         _("Giấy phép"),
