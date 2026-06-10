@@ -26,9 +26,16 @@ const filtered = computed(() => {
 })
 
 useSeoMeta({
-  title: 'Khóa học GPLX — chín hạng theo Luật 2025',
+  title: 'Khóa học GPLX · chín hạng theo Luật 2025',
   description:
     'Danh sách khóa đào tạo lái xe theo Luật 2025: A1, A, B1, B số sàn, B số tự động, C1, C, D1, D2. Học phí công khai, mở lớp liên tục.',
+})
+
+// Canonical cố định cho list — tránh duplicate khi user filter ?nhom=
+const siteUrl = useRuntimeConfig().public.siteUrl
+useHead({
+  link: [{ rel: 'canonical', href: `${siteUrl}/khoa-hoc` }],
+  meta: [{ name: 'robots', content: route.query.nhom ? 'noindex, follow' : 'index, follow' }],
 })
 </script>
 

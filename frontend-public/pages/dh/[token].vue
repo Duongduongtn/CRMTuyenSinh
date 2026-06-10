@@ -76,7 +76,7 @@ const remaining = computed(() => {
 
 useSeoMeta({
   title: enrollment.value
-    ? `Đặt cọc giữ chỗ — ${enrollment.value.code}`
+    ? `Đặt cọc giữ chỗ · ${enrollment.value.code}`
     : 'Đặt cọc giữ chỗ',
   description:
     'Trang đặt cọc giữ chỗ. Quét QR hoặc chuyển khoản theo thông tin hiển thị. Hệ thống tự xác nhận trong 2 phút.',

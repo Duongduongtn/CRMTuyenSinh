@@ -474,7 +474,7 @@ useHead({
                   class="h-12 px-4 bg-white border border-line-base rounded-md focus:outline-none focus:border-brand-700 focus:ring-2 focus:ring-brand-100 transition"
                 >
                   <option value="">Chọn hạng xe</option>
-                  <option v-for="c in featured" :key="c.id" :value="c.title">{{ c.title }} — {{ c.vehicle_group_display }}</option>
+                  <option v-for="c in featured" :key="c.id" :value="c.title">{{ c.title }} · {{ c.vehicle_group_display }}</option>
                 </select>
               </label>
             </div>

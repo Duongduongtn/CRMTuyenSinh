@@ -38,7 +38,7 @@ const nav = [
         <a
           v-if="site?.hotline"
           :href="`tel:${site.hotline}`"
-          class="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 hover:text-brand-700 transition"
+          class="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3 min-h-11 hover:text-brand-700 transition rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700"
         >
           <PhPhone class="size-4" />
           {{ site?.hotline_display || site?.hotline }}
@@ -50,8 +50,9 @@ const nav = [
           Tư vấn miễn phí
         </NuxtLink>
         <button
-          class="lg:hidden p-2"
-          aria-label="Mở menu"
+          class="lg:hidden p-2 min-w-11 min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2"
+          :aria-label="isMobileOpen ? 'Đóng menu' : 'Mở menu'"
+          :aria-expanded="isMobileOpen"
           @click="isMobileOpen = !isMobileOpen"
         >
           <PhX v-if="isMobileOpen" class="size-6" />

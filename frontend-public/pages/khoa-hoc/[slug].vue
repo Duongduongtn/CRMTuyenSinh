@@ -43,13 +43,19 @@ const includes = [
 ]
 
 useSeoMeta({
-  title: course.value.meta_title || `${course.value.title} — ${course.value.vehicle_class_display}`,
+  title: course.value.meta_title || `${course.value.title} · ${course.value.vehicle_class_display}`,
   description:
     course.value.meta_description ||
     course.value.short_description ||
     `Khóa đào tạo ${course.value.title}. Học phí ${formatVND(course.value.tuition_fee)}. Cọc giữ chỗ ${formatVND(course.value.deposit_amount)}.`,
   ogImage: course.value.og_image_url || heroImage.value,
-  ogType: 'website',
+  ogType: 'article',
+  twitterTitle: course.value.meta_title || `${course.value.title} · ${course.value.vehicle_class_display}`,
+  twitterDescription:
+    course.value.meta_description ||
+    course.value.short_description ||
+    `Khóa đào tạo ${course.value.title}`,
+  twitterImage: course.value.og_image_url || heroImage.value,
 })
 
 const siteUrl = useRuntimeConfig().public.siteUrl
@@ -61,13 +67,14 @@ useHead({
 const courseSchema = computed(() => ({
   '@context': 'https://schema.org',
   '@type': 'Course',
-  name: `${course.value!.title} — ${course.value!.vehicle_class_display}`,
+  name: `${course.value!.title} · ${course.value!.vehicle_class_display}`,
   description: course.value!.short_description || course.value!.meta_description,
   url: canonical,
   image: heroImage.value,
   provider: {
     '@type': 'DrivingSchool',
     name: site.value?.brand_name,
+    url: siteUrl,
     sameAs: siteUrl,
   },
   offers: {
@@ -80,6 +87,11 @@ const courseSchema = computed(() => ({
   hasCourseInstance: {
     '@type': 'CourseInstance',
     courseMode: 'onsite',
+    courseSchedule: {
+      '@type': 'Schedule',
+      repeatFrequency: 'P1W',
+      scheduleTimezone: 'Asia/Ho_Chi_Minh',
+    },
     location: {
       '@type': 'Place',
       name: site.value?.brand_name,
@@ -92,11 +104,30 @@ const courseSchema = computed(() => ({
   },
 }))
 
+const breadcrumbSchema = computed(() => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${siteUrl}/` },
+    { '@type': 'ListItem', position: 2, name: 'Khóa học', item: `${siteUrl}/khoa-hoc` },
+    {
+      '@type': 'ListItem',
+      position: 3,
+      name: course.value!.title,
+      item: canonical,
+    },
+  ],
+}))
+
 useHead({
   script: [
     {
       type: 'application/ld+json',
       innerHTML: () => JSON.stringify(courseSchema.value),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: () => JSON.stringify(breadcrumbSchema.value),
     },
   ],
 })
