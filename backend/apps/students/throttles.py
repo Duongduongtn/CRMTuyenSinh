@@ -35,3 +35,25 @@ class OTPVerifyThrottle(SimpleRateThrottle):
     def get_cache_key(self, request, view):
         ident = self.get_ident(request)
         return f"throttle_otp_verify_{ident}"
+
+
+class OTPVerifyPhoneThrottle(SimpleRateThrottle):
+    """Giới hạn verify theo SĐT — chống brute-force OTP khi attacker đổi IP.
+
+    10 lần verify/giờ/SĐT. Kết hợp với OTPRequestThrottle (5/giờ/SĐT) và
+    OTPRequest.attempts (5/OTP) → tổng entropy 100 attempt tối đa cho 1 SĐT
+    trong 1 giờ. OTP 6 số = 1.000.000 khả năng → xác suất trúng ~0.01%/giờ.
+    """
+
+    scope = "otp_verify_phone"
+    rate = "10/hour"
+
+    def get_cache_key(self, request, view):
+        phone_raw = (
+            request.data.get("phone") if hasattr(request, "data") else None
+        ) or request.GET.get("phone", "")
+        phone = normalize_phone(str(phone_raw or ""))
+        if not phone:
+            return None
+        digest = hashlib.sha1(phone.encode("utf-8")).hexdigest()[:16]
+        return f"throttle_otp_verify_phone_{digest}"

@@ -132,7 +132,7 @@ const submitLead = async () => {
                   class="w-full px-4 py-3 min-h-12 text-base border border-line-base rounded-md focus:border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-700/20 transition bg-paper"
                   :disabled="submitting"
                 >
-                  <option value="">Chưa rõ — tư vấn giúp</option>
+                  <option value="">Chưa rõ, tư vấn giúp</option>
                   <option v-for="c in courses?.results || []" :key="c.id" :value="c.vehicle_class">
                     {{ c.vehicle_class_display }}
                   </option>

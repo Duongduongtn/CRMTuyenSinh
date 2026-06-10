@@ -7,13 +7,22 @@ App `documents` — hồ sơ học viên.
 - ``EnrollmentDocument``: sơ yếu lý lịch, đơn xin học, hợp đồng — gắn với
   Enrollment cụ thể.
 
+Bảo mật:
+- File lưu vào ``private_documents/`` (KHÔNG serve qua nginx tĩnh).
+- Tên file UUID, KHÔNG dùng tên gốc của HV (chống path traversal + đoán URL).
+- Truy cập file BẮT BUỘC qua endpoint ``/api/student/documents/<id>/file``
+  có JWT auth + IDOR check + audit log (Sprint 3).
+
 Auto-purge CCCD sau 90 ngày kể từ ngày hoàn thành khóa (NĐ 13/2023 về BVDLCN).
 Xem [[apps.documents.tasks]].
 """
 from __future__ import annotations
 
+import io
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -23,26 +32,28 @@ MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
-    "image/webp",
     "application/pdf",
 }
 
-# Magic bytes (file signature) — chống upload .exe đổi đuôi .jpg
+# Magic bytes (file signature) — chống upload .exe đổi đuôi .jpg.
+# v1 thu hẹp về JPG/PNG/PDF: WebP có thể embed script container, loại bỏ
+# để giảm bề mặt tấn công. Khi cần WebP, FE convert sang JPG trước upload.
 MAGIC_BYTES = {
     "image/jpeg": [b"\xff\xd8\xff"],
     "image/png": [b"\x89PNG\r\n\x1a\n"],
-    "image/webp": [b"RIFF"],  # check thêm "WEBP" ở byte 8-12
     "application/pdf": [b"%PDF-"],
 }
 
 
 def validate_upload(file_obj, *, max_size: int = MAX_UPLOAD_SIZE) -> str:
-    """Validate file upload: size + magic bytes.
+    """Validate file upload: size + magic bytes + Pillow verify.
 
     Return MIME type detect được. Raise ``ValidationError`` nếu invalid.
 
-    Đọc 12 byte đầu để check magic. Reset pointer sau khi đọc — caller có
-    thể tiếp tục đọc/save bình thường.
+    Ảnh JPG/PNG sẽ được re-encode qua Pillow để strip EXIF (lộ GPS) + chống
+    polyglot XSS (file đúng magic nhưng có payload HTML/JS phía sau). Caller
+    nên dùng file_obj đã được normalize bằng cách gọi
+    :func:`sanitize_image_inplace` ngay sau khi `validate_upload` pass.
     """
     if file_obj.size > max_size:
         raise ValidationError(
@@ -60,22 +71,70 @@ def validate_upload(file_obj, *, max_size: int = MAX_UPLOAD_SIZE) -> str:
     for mime, signatures in MAGIC_BYTES.items():
         for sig in signatures:
             if head.startswith(sig):
-                if mime == "image/webp":
-                    # WebP: "RIFF" + 4 byte size + "WEBP"
-                    if len(head) >= 12 and head[8:12] == b"WEBP":
-                        detected = mime
-                        break
-                else:
-                    detected = mime
-                    break
+                detected = mime
+                break
         if detected:
             break
 
     if not detected:
         raise ValidationError(
-            "File không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, WEBP hoặc PDF."
+            "File không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG hoặc PDF."
         )
+
+    if detected.startswith("image/"):
+        # Pillow verify: phát hiện corrupt + chống polyglot magic giả.
+        try:
+            from PIL import Image, ImageFile
+
+            ImageFile.LOAD_TRUNCATED_IMAGES = False
+            file_obj.seek(0)
+            img = Image.open(file_obj)
+            img.verify()
+        except Exception as exc:
+            raise ValidationError(
+                "Ảnh không hợp lệ hoặc bị hỏng. Vui lòng chụp lại."
+            ) from exc
+        finally:
+            file_obj.seek(0)
+
     return detected
+
+
+def sanitize_image_inplace(file_obj, mime: str) -> tuple[InMemoryUploadedFile, str]:
+    """Re-encode ảnh qua Pillow để strip EXIF + bảo đảm content chuẩn.
+
+    Trả về file mới đã re-encode và mime cuối cùng (luôn ``image/jpeg`` sau khi
+    re-encode để giảm bề mặt tấn công). Với PDF KHÔNG re-encode (chi phí cao),
+    chỉ trả lại file_obj nguyên.
+
+    Caller nên dùng file mới này khi tạo DocumentModel.
+    """
+    if not mime.startswith("image/"):
+        return file_obj, mime
+
+    from PIL import Image
+
+    file_obj.seek(0)
+    img = Image.open(file_obj)
+    img.load()  # decode toàn bộ
+    # Convert mode để chắc chắn JPEG save được (loại bỏ alpha trên PNG)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=88, optimize=True)
+    buf.seek(0)
+
+    new_name = (file_obj.name.rsplit(".", 1)[0] if file_obj.name else "image") + ".jpg"
+    new_file = InMemoryUploadedFile(
+        file=buf,
+        field_name=getattr(file_obj, "field_name", "file"),
+        name=new_name,
+        content_type="image/jpeg",
+        size=buf.getbuffer().nbytes,
+        charset=None,
+    )
+    return new_file, "image/jpeg"
 
 
 class DocumentType(models.Model):
@@ -130,6 +189,26 @@ class DocumentStatus(models.TextChoices):
     PURGED = "purged", _("Đã xóa theo NĐ 13/2023")
 
 
+def _private_upload_path(instance, filename: str) -> str:
+    """Path file UUID — không tiết lộ tên gốc, không đoán được URL.
+
+    Pattern: ``private_documents/<YYYY>/<MM>/<uuid4>.<ext>``.
+    """
+    import uuid
+
+    ext = ""
+    if "." in filename:
+        ext = "." + filename.rsplit(".", 1)[-1].lower()[:6]
+    now = models_now()
+    return f"private_documents/{now:%Y/%m}/{uuid.uuid4().hex}{ext}"
+
+
+def models_now():
+    from django.utils import timezone
+
+    return timezone.now()
+
+
 class DocumentBase(models.Model):
     """Base abstract cho Person/Enrollment document."""
 
@@ -141,9 +220,9 @@ class DocumentBase(models.Model):
     )
     file = models.FileField(
         _("Tập tin"),
-        upload_to="documents/%Y/%m/",
+        upload_to=_private_upload_path,
         max_length=500,
-        help_text=_("Tối đa 5MB. JPG/PNG/WEBP/PDF."),
+        help_text=_("Tối đa 5MB. JPG/PNG/PDF."),
     )
     mime_type = models.CharField(_("MIME"), max_length=50, blank=True, default="")
     file_size = models.PositiveIntegerField(_("Kích thước (bytes)"), default=0)

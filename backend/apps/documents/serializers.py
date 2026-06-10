@@ -40,15 +40,20 @@ class PersonDocumentSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_file_url(self, obj: PersonDocument) -> str:
+    _kind = "person"
+
+    def get_file_url(self, obj) -> str:
+        """URL trỏ về endpoint serve có JWT auth — KHÔNG /media/ trực tiếp."""
         if not obj.file:
             return ""
         request = self.context.get("request")
-        url = obj.file.url
-        return request.build_absolute_uri(url) if request else url
+        path = f"/api/student/documents/{self._kind}/{obj.pk}/file"
+        return request.build_absolute_uri(path) if request else path
 
 
 class EnrollmentDocumentSerializer(PersonDocumentSerializer):
+    _kind = "enrollment"
+
     class Meta(PersonDocumentSerializer.Meta):
         model = EnrollmentDocument
 

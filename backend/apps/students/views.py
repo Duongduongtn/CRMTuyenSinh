@@ -32,7 +32,6 @@ from .models import (
     OTPRequest,
     Person,
     StudentAccount,
-    normalize_phone,
 )
 from .serializers import (
     EnrollmentDashboardSerializer,
@@ -42,8 +41,8 @@ from .serializers import (
     RefreshSerializer,
     StudentMeSerializer,
 )
-from .throttles import OTPRequestThrottle, OTPVerifyThrottle
-from .zns_adapter import send_otp
+from .throttles import OTPRequestThrottle, OTPVerifyPhoneThrottle, OTPVerifyThrottle
+from .zns_adapter import ZNSError, send_otp
 
 
 def _client_ip(request) -> str | None:
@@ -63,17 +62,36 @@ def request_otp(request):
     hệ thống không" để chống user enumeration. Tạo mới account nếu chưa có —
     cũng giúp HV tự đăng ký lần đầu nếu sale chưa nhập kịp (mặc dù flow chính
     là sale chốt đơn trước, HV login sau).
+
+    Invalidate mọi OTP ``pending`` cũ cho cùng SĐT trước khi tạo OTP mới —
+    chống abuse "tạo nhiều OTP song song để tăng cơ hội brute-force".
     """
     ser = OTPRequestSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     phone = ser.validated_data["phone"]
+
+    # Invalidate OTP cũ pending cho cùng SĐT
+    OTPRequest.objects.filter(
+        phone=phone, status=OTPRequest.Status.PENDING
+    ).update(status=OTPRequest.Status.EXPIRED)
 
     otp, plain_code = OTPRequest.create_for_phone(
         phone,
         ip_address=_client_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )
-    result = send_otp(phone, plain_code)
+    try:
+        result = send_otp(phone, plain_code)
+    except ZNSError as exc:
+        # Mark OTP đã tạo là expired vì gửi thất bại
+        otp.status = OTPRequest.Status.EXPIRED
+        otp.sent_via = "zns_unconfigured"
+        otp.sent_meta = {"error": str(exc)}
+        otp.save(update_fields=["status", "sent_via", "sent_meta"])
+        return Response(
+            {"detail": str(exc)},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     otp.sent_via = result["sent_via"]
     otp.sent_meta = result["meta"]
     otp.save(update_fields=["sent_via", "sent_meta"])
@@ -89,7 +107,7 @@ def request_otp(request):
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
-@throttle_classes([OTPVerifyThrottle])
+@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
 def verify_otp(request):
     """Xác thực OTP → cấp access + refresh JWT.
 

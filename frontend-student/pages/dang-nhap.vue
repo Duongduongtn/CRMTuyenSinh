@@ -209,7 +209,7 @@ useHead({
 
         <div class="mt-6 flex items-center justify-center gap-2 text-xs text-ink-60">
           <PhShieldCheck class="size-4 text-brand-700" />
-          Bảo mật bằng OTP — không lưu mật khẩu
+          Bảo mật bằng OTP · không lưu mật khẩu
         </div>
       </div>
     </div>

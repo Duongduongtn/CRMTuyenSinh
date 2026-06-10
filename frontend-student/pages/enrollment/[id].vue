@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {
   PhArrowLeft,
+  PhArrowRight,
   PhSpinnerGap,
   PhQrCode,
-  PhCheckCircle,
   PhCalendar,
   PhInfo,
 } from '@phosphor-icons/vue'
@@ -114,7 +114,7 @@ const depositLink = computed(() =>
           <p class="text-xs text-ink-60 mt-0.5">CCCD, ảnh chân dung, giấy khám sức khỏe</p>
         </div>
         <span class="text-brand-700">
-          <PhArrowLeft class="size-5 rotate-180 group-hover:translate-x-0.5 transition" />
+          <PhArrowRight class="size-5 group-hover:translate-x-0.5 transition" />
         </span>
       </NuxtLink>
 

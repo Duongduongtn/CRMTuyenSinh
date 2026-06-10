@@ -16,9 +16,10 @@ onMounted(() => load())
 useHead({ title: 'Tổng quan' })
 
 const greeting = computed(() => {
+  // Quy ước VN: sáng tới 11h, trưa 11 đến 13h, chiều 13 đến 18h, tối sau 18h.
   const h = new Date().getHours()
   if (h < 11) return 'Chào buổi sáng'
-  if (h < 14) return 'Chào buổi trưa'
+  if (h < 13) return 'Chào buổi trưa'
   if (h < 18) return 'Chào buổi chiều'
   return 'Chào buổi tối'
 })
@@ -33,9 +34,14 @@ const greeting = computed(() => {
       </h1>
     </section>
 
-    <div v-if="loading && !enrollments.length" class="card-base flex items-center gap-3 text-ink-60">
-      <PhSpinnerGap class="size-5 animate-spin" />
-      Đang tải dữ liệu…
+    <div
+      v-if="loading && !enrollments.length"
+      role="status"
+      aria-live="polite"
+      class="card-base flex items-center gap-3 text-ink-60"
+    >
+      <PhSpinnerGap class="size-5 animate-spin" aria-hidden="true" />
+      <span>Đang tải dữ liệu…</span>
     </div>
 
     <div v-else-if="error" class="card-base border-danger/30 bg-danger-soft text-danger">

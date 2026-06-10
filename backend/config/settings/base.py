@@ -157,12 +157,14 @@ REST_FRAMEWORK = {
         "deposit_link": "30/minute", # chống enum đơn qua public deposit endpoint
         "otp_request": "5/hour",     # 5 OTP/giờ/SĐT
         "otp_verify": "30/hour",     # 30 lần verify/giờ/IP chống brute-force
+        "otp_verify_phone": "10/hour",  # 10 lần verify/giờ/SĐT — chặn botnet đổi IP
     },
 }
 
 # File upload limits
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 + 256 * 1024  # 5MB + buffer headers
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200  # chống DoS multipart spam field
 
 # Celery
 CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default="") or env.str("REDIS_URL", default="memory://")

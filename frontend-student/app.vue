@@ -8,6 +8,6 @@ onMounted(() => {
 
 <template>
   <NuxtLayout>
-    <NuxtPage :transition="{ name: 'slide', mode: 'out-in' }" />
+    <NuxtPage />
   </NuxtLayout>
 </template>

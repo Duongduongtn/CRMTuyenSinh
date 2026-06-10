@@ -57,6 +57,8 @@ export default <Config>{
           950: '#052E16',
         },
         warm: { amber: '#D97706' },
+        danger: { DEFAULT: '#B91C1C', soft: '#FEE2E2' },
+        success: { DEFAULT: '#15803D', soft: '#DCFCE7' },
       },
       borderRadius: {
         sm: '0.375rem',

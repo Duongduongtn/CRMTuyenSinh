@@ -10,7 +10,6 @@ Acceptance:
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.courses.models import Course, VehicleClass, VehicleGroup
@@ -45,7 +44,11 @@ def _make_enrollment(phone: str, code: str = "ORD-AAA001"):
     )
 
 
-@override_settings(ZNS_ACCESS_TOKEN="", ZNS_TEMPLATE_ID_OTP="")
+@override_settings(
+    ZNS_ACCESS_TOKEN="",
+    ZNS_TEMPLATE_ID_OTP="",
+    ZNS_ALLOW_MOCK=True,
+)
 class OTPFlowTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -95,6 +98,44 @@ class OTPFlowTests(TestCase):
         # Khi sale tạo enrollment, signal phải tạo StudentAccount
         _make_enrollment("0903999888", "ORD-AUTO01")
         self.assertTrue(StudentAccount.objects.filter(phone="0903999888").exists())
+
+    def test_request_otp_invalidates_pending_old_otp(self):
+        # Tạo 2 OTP cho cùng SĐT — OTP cũ phải bị invalidate khi tạo mới.
+        self.client.post(
+            "/api/student/auth/request-otp", {"phone": "0903777666"}, format="json"
+        )
+        self.client.post(
+            "/api/student/auth/request-otp", {"phone": "0903777666"}, format="json"
+        )
+        otps = OTPRequest.objects.filter(phone="0903777666").order_by("created_at")
+        self.assertEqual(otps.count(), 2)
+        self.assertEqual(otps[0].status, OTPRequest.Status.EXPIRED)
+        self.assertEqual(otps[1].status, OTPRequest.Status.PENDING)
+
+
+@override_settings(
+    ZNS_ACCESS_TOKEN="",
+    ZNS_TEMPLATE_ID_OTP="",
+    ZNS_ALLOW_MOCK=False,
+    DEBUG=False,
+)
+class OTPProductionGuardTests(TestCase):
+    """ZNS chưa cấu hình ở prod → request-otp trả 503 thay vì log code."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.client = APIClient()
+
+    def test_request_otp_returns_503_when_zns_not_configured(self):
+        resp = self.client.post(
+            "/api/student/auth/request-otp", {"phone": "0903555444"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 503)
+        # OTP đã tạo nhưng phải bị mark expired vì gửi thất bại
+        otp = OTPRequest.objects.filter(phone="0903555444").first()
+        self.assertIsNotNone(otp)
+        self.assertEqual(otp.status, OTPRequest.Status.EXPIRED)
 
 
 class IDOREnrollmentTests(TestCase):

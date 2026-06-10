@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PhCalendarBlank, PhClock, PhArrowLeft, PhShare, PhUser } from '@phosphor-icons/vue'
 import { marked } from 'marked'
+import DOMPurify from 'isomorphic-dompurify'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug))
@@ -13,7 +14,17 @@ if (!post.value && error.value) {
 }
 
 marked.setOptions({ gfm: true, breaks: false })
-const contentHtml = computed(() => post.value ? marked.parse(post.value.content_md || '') : '')
+// Sanitize HTML render từ Markdown — chống XSS qua tag thô (script, onerror...)
+// dù BTV soạn bài là internal user, vẫn defense in depth.
+const contentHtml = computed(() => {
+  if (!post.value) return ''
+  const raw = marked.parse(post.value.content_md || '') as string
+  return DOMPurify.sanitize(raw, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick'],
+  })
+})
 
 const canonical = computed(() => {
   if (post.value?.canonical_url) return post.value.canonical_url
@@ -41,14 +52,17 @@ useSchemaOrg(post.value)
 
 function useSchemaOrg(p: typeof post.value) {
   if (!p) return
-  const json = {
+  const base = useRuntimeConfig().public.siteUrl
+  const article = {
     '@context': 'https://schema.org',
     '@type': 'Article',
+    inLanguage: 'vi-VN',
     headline: p.title,
     description: p.excerpt,
     image: p.og_image_url || p.cover_image_url || undefined,
     datePublished: p.published_at,
     dateModified: p.updated_at,
+    keywords: p.category.name,
     author: { '@type': 'Organization', name: site.value?.brand_name || 'Trung tâm Đào tạo Lái xe' },
     publisher: {
       '@type': 'Organization',
@@ -59,8 +73,20 @@ function useSchemaOrg(p: typeof post.value) {
     },
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonical.value },
   }
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: base },
+      { '@type': 'ListItem', position: 2, name: 'Tin tức', item: `${base}/tin-tuc` },
+      { '@type': 'ListItem', position: 3, name: p.title, item: canonical.value },
+    ],
+  }
   useHead({
-    script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(json) }],
+    script: [
+      { type: 'application/ld+json', innerHTML: JSON.stringify(article) },
+      { type: 'application/ld+json', innerHTML: JSON.stringify(breadcrumb) },
+    ],
   })
 }
 

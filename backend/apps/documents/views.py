@@ -6,14 +6,17 @@ Endpoints:
 - ``POST /api/student/persons/<id>/documents`` — upload tài liệu cá nhân.
 - ``GET /api/student/enrollments/<id>/documents`` — list tài liệu theo đơn.
 - ``POST /api/student/enrollments/<id>/documents`` — upload tài liệu theo đơn.
+- ``GET /api/student/documents/<kind>/<id>/file`` — serve file riêng tư (auth + IDOR).
 
 Tất cả endpoint đều check IDOR:
 - Person chỉ truy cập được nếu account đã link qua ``AccountPersonLink``.
 - Enrollment chỉ truy cập được nếu ``student_phone == account.phone``.
+- Serve file: KHÔNG bao giờ trả URL public; mọi byte đi qua view có auth.
 """
 from __future__ import annotations
 
 from django.db import transaction
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -29,6 +32,7 @@ from .models import (
     DocumentType,
     EnrollmentDocument,
     PersonDocument,
+    sanitize_image_inplace,
 )
 from .serializers import (
     DocumentTypeShortSerializer,
@@ -111,6 +115,10 @@ class PersonDocumentListUploadView(StudentAuthMixin, APIView):
         f = ser.validated_data["file"]
         mime = ser.validated_data["_detected_mime"]
 
+        # Re-encode ảnh để strip EXIF (lộ GPS) + chống polyglot HTML/PDF.
+        # PDF không qua sanitize (chi phí cao + nhạy cảm cấu trúc).
+        f, mime = sanitize_image_inplace(f, mime)
+
         with transaction.atomic():
             # Vô hiệu các bản đang chờ duyệt trước đó cùng loại — chống stale
             PersonDocument.objects.filter(
@@ -131,6 +139,60 @@ class PersonDocumentListUploadView(StudentAuthMixin, APIView):
             PersonDocumentSerializer(doc, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class DocumentFileServeView(StudentAuthMixin, APIView):
+    """Serve byte stream file với JWT auth + IDOR check.
+
+    URL: ``/api/student/documents/<kind>/<doc_id>/file`` với ``kind`` ∈
+    {``person``, ``enrollment``}.
+
+    Headers bắt buộc:
+    - ``Content-Disposition: attachment`` — ép browser tải xuống, không inline
+      render (chống XSS qua file đúng magic nhưng có payload).
+    - ``X-Content-Type-Options: nosniff`` — chặn MIME sniff.
+    - ``Cache-Control: private, no-store`` — không cache CDN.
+    """
+
+    def get(self, request, kind: str, doc_id: int):
+        account = request.user.account
+        if kind == "person":
+            person_ids = AccountPersonLink.objects.filter(account=account).values_list(
+                "person_id", flat=True
+            )
+            doc = get_object_or_404(
+                PersonDocument,
+                pk=doc_id,
+                person_id__in=list(person_ids),
+            )
+        elif kind == "enrollment":
+            doc = get_object_or_404(
+                EnrollmentDocument,
+                pk=doc_id,
+                enrollment__student_phone=account.phone,
+            )
+        else:
+            raise Http404("Loại tài liệu không hợp lệ.")
+
+        if doc.status == DocumentStatus.PURGED or not doc.file:
+            raise Http404("Tài liệu không còn truy cập được.")
+
+        # Mở file rồi stream qua FileResponse
+        try:
+            f = doc.file.open("rb")
+        except FileNotFoundError as exc:
+            raise Http404("File không tồn tại trên storage.") from exc
+
+        # File luôn có mime đã verify từ lúc upload
+        content_type = doc.mime_type or "application/octet-stream"
+        resp = FileResponse(f, content_type=content_type)
+        # Force download — ngăn browser render HTML/SVG inline
+        safe_name = f"document-{doc.pk}.{(content_type.split('/')[-1] or 'bin')}"
+        resp["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+        resp["X-Content-Type-Options"] = "nosniff"
+        resp["Cache-Control"] = "private, no-store, max-age=0"
+        resp["Referrer-Policy"] = "no-referrer"
+        return resp
 
 
 class EnrollmentDocumentListUploadView(StudentAuthMixin, APIView):
@@ -168,6 +230,7 @@ class EnrollmentDocumentListUploadView(StudentAuthMixin, APIView):
 
         f = ser.validated_data["file"]
         mime = ser.validated_data["_detected_mime"]
+        f, mime = sanitize_image_inplace(f, mime)
 
         with transaction.atomic():
             EnrollmentDocument.objects.filter(

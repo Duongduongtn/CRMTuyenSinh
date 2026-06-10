@@ -29,18 +29,37 @@ def _is_mock_mode() -> bool:
     return not (settings.ZNS_ACCESS_TOKEN and settings.ZNS_TEMPLATE_ID_OTP)
 
 
+def _mask_phone(phone: str) -> str:
+    """Mask SĐT cho log: 0903456789 → 0903***789."""
+    if not phone or len(phone) < 7:
+        return "***"
+    return phone[:4] + "***" + phone[-3:]
+
+
 def send_otp(phone: str, code: str, *, template_id: str | None = None) -> dict[str, Any]:
     """Gửi mã OTP qua ZNS template.
 
     Return dict với ``sent_via`` và ``meta`` để caller lưu vào ``OTPRequest.sent_meta``.
+    KHÔNG bao giờ log plain code ở prod — chỉ dev/test với DJANGO_DEBUG=True
+    hoặc ZNS_ALLOW_MOCK=True mới in code thuần.
     """
     template_id = template_id or settings.ZNS_TEMPLATE_ID_OTP
     if _is_mock_mode():
+        # Chặn cứng prod: nếu không DEBUG và không cho phép mock → raise ngay.
+        allow_mock = getattr(settings, "ZNS_ALLOW_MOCK", False) or settings.DEBUG
+        if not allow_mock:
+            logger.error(
+                "ZNS chưa cấu hình ở môi trường production (phone=%s).",
+                _mask_phone(phone),
+            )
+            raise ZNSError(
+                "Dịch vụ gửi mã OTP chưa được cấu hình. Vui lòng liên hệ tư vấn viên."
+            )
+        # Dev/test: log code thuần để debug, kèm cảnh báo rõ.
         logger.warning(
-            "ZNS MOCK MODE — OTP cho %s: %s (template=%s)",
-            phone,
+            "ZNS MOCK MODE (dev only) — OTP cho %s: %s",
+            _mask_phone(phone),
             code,
-            template_id or "<chưa cấu hình>",
         )
         return {"sent_via": "mock_dev", "meta": {"mock": True, "code_logged": True}}
 

@@ -15,6 +15,10 @@ const isActive = (to: string) => route.path === to || route.path.startsWith(to +
 
 <template>
   <div class="min-h-screen flex flex-col bg-paper-alt">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-ink focus:text-white focus:rounded-md"
+    >Bỏ qua tới nội dung</a>
     <header v-if="isAuthenticated" class="sticky top-0 z-30 bg-paper border-b border-line-soft" style="padding-top: var(--safe-top);">
       <div class="container-base flex items-center justify-between h-14">
         <NuxtLink to="/dashboard" class="flex items-center gap-2">
@@ -36,7 +40,7 @@ const isActive = (to: string) => route.path === to || route.path.startsWith(to +
       </div>
     </header>
 
-    <main class="flex-1 pb-24" :class="{ 'pt-2': isAuthenticated }">
+    <main id="main" class="flex-1 pb-24" :class="{ 'pt-2': isAuthenticated }">
       <slot />
     </main>
 
@@ -51,7 +55,7 @@ const isActive = (to: string) => route.path === to || route.path.startsWith(to +
           <NuxtLink
             :to="item.to"
             class="h-full flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors duration-300 ease-out-expo"
-            :class="isActive(item.to) ? 'text-brand-700' : 'text-ink-40 hover:text-ink-60'"
+            :class="isActive(item.to) ? 'text-brand-700 bg-brand-50/70' : 'text-ink-40 hover:text-ink-60'"
           >
             <component :is="item.icon" class="size-6" :weight="isActive(item.to) ? 'fill' : 'regular'" />
             <span>{{ item.label }}</span>

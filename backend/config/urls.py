@@ -22,6 +22,9 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    # CHỈ serve MEDIA_URL tĩnh cho file KHÔNG nhạy cảm (avatars, brand logo, blog cover).
+    # File trong private_documents/ KHÔNG bao giờ được serve qua đây — mọi truy cập
+    # đi qua /api/student/documents/<kind>/<id>/file (JWT + IDOR + audit).
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     try:
         import debug_toolbar  # noqa: F401
