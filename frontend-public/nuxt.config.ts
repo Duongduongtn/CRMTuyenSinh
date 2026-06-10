@@ -13,12 +13,15 @@ export default defineNuxtConfig({
   ],
 
   // Self-host fonts + main CSS
+  // Font chính: Be Vietnam Pro — thiết kế bởi Bộ Khoa học & Công nghệ + Google,
+  // tối ưu cho diacritic tiếng Việt (ư, ơ, ờ, ễ, ặ). Subsets `vietnamese`
+  // tự động load qua CSS từ @fontsource.
   css: [
-    '@fontsource/geist-sans/400.css',
-    '@fontsource/geist-sans/500.css',
-    '@fontsource/geist-sans/600.css',
-    '@fontsource/geist-sans/700.css',
-    '@fontsource/geist-sans/800.css',
+    '@fontsource/be-vietnam-pro/400.css',
+    '@fontsource/be-vietnam-pro/500.css',
+    '@fontsource/be-vietnam-pro/600.css',
+    '@fontsource/be-vietnam-pro/700.css',
+    '@fontsource/be-vietnam-pro/800.css',
     '@fontsource/geist-mono/400.css',
     '~/assets/css/main.css',
   ],
@@ -32,21 +35,23 @@ export default defineNuxtConfig({
     },
   },
 
-  // SSG: pre-render landing + list khóa + 9 detail khóa. /dh/[token] để SSR.
+  // SSG: pre-render landing + list khóa + 9 detail khóa + tin-tuc + lien-he.
+  // /dh/[token] để SSR runtime.
   nitro: {
     prerender: {
       crawlLinks: true,
-      routes: ['/', '/khoa-hoc', '/robots.txt', '/sitemap.xml'],
-      // Fail-safe — không crash build nếu BE chưa chạy lúc generate
+      routes: ['/', '/khoa-hoc', '/tin-tuc', '/lien-he', '/robots.txt', '/sitemap.xml'],
       failOnError: false,
       ignore: ['/dh'],
     },
   },
 
-  // Route rules — /dh/* không SSG, render runtime
   routeRules: {
     '/': { prerender: true },
     '/khoa-hoc/**': { prerender: true },
+    '/tin-tuc': { prerender: true },
+    '/tin-tuc/**': { prerender: true },
+    '/lien-he': { prerender: true },
     '/dh/**': { ssr: true, prerender: false },
   },
 

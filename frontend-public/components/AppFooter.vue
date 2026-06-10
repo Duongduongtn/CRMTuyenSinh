@@ -62,7 +62,8 @@ const year = new Date().getFullYear()
           <h4 class="font-semibold mb-4 text-sm">Liên kết</h4>
           <ul class="space-y-2.5 text-sm text-ink-60">
             <li><NuxtLink to="/khoa-hoc" class="hover:text-ink transition">Tất cả khóa học</NuxtLink></li>
-            <li><NuxtLink to="/#lien-he" class="hover:text-ink transition">Liên hệ</NuxtLink></li>
+            <li><NuxtLink to="/tin-tuc" class="hover:text-ink transition">Tin tức</NuxtLink></li>
+            <li><NuxtLink to="/lien-he" class="hover:text-ink transition">Liên hệ</NuxtLink></li>
             <li><NuxtLink to="/#quy-trinh" class="hover:text-ink transition">Quy trình</NuxtLink></li>
           </ul>
         </div>

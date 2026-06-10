@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --shadow-soft: 0 1px 2px rgba(15, 31, 26, 0.04), 0 2px 8px rgba(15, 31, 26, 0.06);
+    --shadow-md: 0 4px 16px rgba(15, 31, 26, 0.08);
+    --shadow-lg: 0 16px 48px rgba(15, 31, 26, 0.12);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    height: 100%;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased font-sans;
+    font-feature-settings: 'ss01', 'ss02', 'cv11';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100%;
+    overscroll-behavior-y: contain;
+  }
+
+  ::selection {
+    background: #15803D;
+    color: #F7FAF9;
+  }
+
+  h1, h2, h3, h4 {
+    padding-bottom: 0.12em;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  h1 { line-height: 1.1; }
+  h2 { line-height: 1.15; }
+
+  /* Mobile-first: tăng tap target tối thiểu 44px */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .num-display {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] bg-brand-700 hover:bg-brand-800 active:bg-brand-900 text-white font-semibold text-base rounded-md transition-colors duration-300 ease-out-expo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3.5 min-h-[48px] border border-line-base hover:border-ink text-ink font-medium text-base rounded-md transition-colors duration-300 ease-out-expo;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-800 font-medium underline-offset-4 hover:underline min-h-[44px] px-2;
+  }
+  .input-base {
+    @apply w-full px-4 py-3.5 min-h-[48px] text-base border border-line-base rounded-md bg-paper focus:border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-700/20 transition placeholder-ink-40;
+  }
+  .card-base {
+    @apply bg-paper rounded-lg border border-line-soft p-5 shadow-[var(--shadow-soft)];
+  }
+  .container-base {
+    @apply max-w-base mx-auto px-4;
+  }
+  .container-narrow {
+    @apply max-w-narrow mx-auto px-4;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+  .badge-warning {
+    @apply bg-warm-amber/10 text-warm-amber;
+  }
+  .badge-success {
+    @apply bg-success-soft text-success;
+  }
+  .badge-danger {
+    @apply bg-danger-soft text-danger;
+  }
+  .badge-neutral {
+    @apply bg-paper-alt text-ink-60;
+  }
+
+  /* Page transition slide-up mềm cho mobile */
+  .slide-enter-active, .slide-leave-active {
+    transition: opacity 250ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .slide-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  .slide-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-enter-active, .slide-leave-active {
+    transition: opacity 100ms;
+    transform: none;
+  }
+}

@@ -14,6 +14,9 @@ urlpatterns = [
     path("api/", include("apps.leads.urls")),
     path("api/", include("apps.orders.urls")),
     path("api/", include("apps.payments.urls")),
+    path("api/", include("apps.students.urls")),
+    path("api/", include("apps.documents.urls")),
+    path("api/", include("apps.blog.urls")),
     # Webhook server-to-server (root path, KHÔNG nằm trong /api/)
     *payments_webhooks,
 ]

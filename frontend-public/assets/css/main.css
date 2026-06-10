@@ -16,7 +16,13 @@
 
   body {
     @apply bg-paper text-ink antialiased font-sans;
+    /* Be Vietnam Pro feature set: ss01 (open digits), ss02 (single-storey a),
+       cv11 (single-storey g) — đẹp hơn cho UI marketing tiếng Việt. */
     font-feature-settings: 'ss01', 'ss02', 'cv11';
+    /* Hint: cải thiện kerning + ligature cho heading tiếng Việt */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
@@ -24,10 +30,16 @@
     color: #F7FAF9;
   }
 
-  /* Heading dấu tiếng Việt — tránh cắt phần dấu mũ */
+  /* Heading dấu tiếng Việt — tránh cắt phần dấu mũ trên ư, ơ, ờ, ễ, ặ */
   h1, h2, h3, h4 {
-    padding-bottom: 0.1em;
+    padding-bottom: 0.12em;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
+  /* Line-height nới cho heading có dấu cao, tránh dấu chạm dòng trên */
+  h1 { line-height: 1.08; }
+  h2 { line-height: 1.12; }
+  h3 { line-height: 1.2; }
 
   /* Tabular nums cho số tiền/thống kê */
   .num-display {

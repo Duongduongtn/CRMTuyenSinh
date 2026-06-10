@@ -10,9 +10,9 @@ watch(() => route.path, () => { isMobileOpen.value = false })
 
 const nav = [
   { to: '/khoa-hoc', label: 'Khóa học' },
-  { to: '/#loi-the', label: 'Lợi thế' },
+  { to: '/tin-tuc', label: 'Tin tức' },
   { to: '/#quy-trinh', label: 'Quy trình' },
-  { to: '/#lien-he', label: 'Liên hệ' },
+  { to: '/lien-he', label: 'Liên hệ' },
 ]
 </script>
 
@@ -44,7 +44,7 @@ const nav = [
           {{ site?.hotline_display || site?.hotline }}
         </a>
         <NuxtLink
-          to="/#lien-he"
+          to="/lien-he"
           class="inline-flex items-center gap-1.5 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2.5 rounded-md transition-colors"
         >
           Tư vấn miễn phí

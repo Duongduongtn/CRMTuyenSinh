@@ -46,6 +46,9 @@ INSTALLED_APPS = [
     "apps.leads",
     "apps.orders",
     "apps.payments",
+    "apps.students",
+    "apps.documents",
+    "apps.blog",
 ]
 
 MIDDLEWARE = [
@@ -152,8 +155,14 @@ REST_FRAMEWORK = {
         "user": "300/minute",
         "lead_capture": "30/hour",   # chống spam form
         "deposit_link": "30/minute", # chống enum đơn qua public deposit endpoint
+        "otp_request": "5/hour",     # 5 OTP/giờ/SĐT
+        "otp_verify": "30/hour",     # 30 lần verify/giờ/IP chống brute-force
     },
 }
+
+# File upload limits
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 + 256 * 1024  # 5MB + buffer headers
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 # Celery
 CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default="") or env.str("REDIS_URL", default="memory://")
@@ -172,6 +181,13 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": env.int("CELERY_RECONCILE_INTERVAL_SECONDS", default=300),
         "kwargs": {"lookback_hours": env.int("CELERY_RECONCILE_LOOKBACK_HOURS", default=24)},
         "options": {"expires": 240},  # hết hạn trước lần kế (tránh task chồng nhau)
+    },
+    "purge-expired-documents": {
+        # Quét xóa CCCD/sức khỏe quá 90 ngày theo NĐ 13/2023.
+        # Mặc định 6h/lần (đủ để purge kịp, không nặng DB).
+        "task": "apps.documents.purge_expired_documents",
+        "schedule": env.int("CELERY_PURGE_DOCS_INTERVAL_SECONDS", default=6 * 60 * 60),
+        "options": {"expires": 5 * 60 * 60},
     },
 }
 

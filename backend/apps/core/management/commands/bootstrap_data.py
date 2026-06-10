@@ -17,6 +17,7 @@ from django.db import transaction
 
 from apps.core.models import SiteSettings
 from apps.courses.models import Course, VehicleClass, VehicleGroup
+from apps.documents.models import DocumentType
 
 
 GROUPS_SPEC = {
@@ -206,14 +207,24 @@ class Command(BaseCommand):
         accountant_group.permissions.set(acc_perms)
         self.stdout.write(f"  - Group 'accountant' gán {acc_perms.count()} permission (payment + đơn).")
 
-        # Văn thư: enrollment view (in PDF Sprint 2)
+        # Văn thư: enrollment view + duyệt hồ sơ + upload hộ HV
         clerk_group = Group.objects.get(name="clerk")
         clerk_perms = Permission.objects.filter(
-            content_type__app_label__in=["orders", "leads"],
-            codename__in=["view_enrollment", "view_lead"],
+            content_type__app_label__in=["orders", "leads", "documents", "students"],
+            codename__in=[
+                "view_enrollment", "view_lead",
+                # Duyệt + upload hộ tài liệu
+                "view_persondocument", "add_persondocument", "change_persondocument",
+                "view_enrollmentdocument", "add_enrollmentdocument", "change_enrollmentdocument",
+                "view_documenttype",
+                # Person + StudentAccount: xem, sửa cơ bản
+                "view_studentaccount", "change_studentaccount",
+                "view_person", "add_person", "change_person",
+                "view_accountpersonlink", "add_accountpersonlink",
+            ],
         )
         clerk_group.permissions.set(clerk_perms)
-        self.stdout.write(f"  - Group 'clerk' gán {clerk_perms.count()} permission (đơn read-only).")
+        self.stdout.write(f"  - Group 'clerk' gán {clerk_perms.count()} permission (đơn + hồ sơ).")
 
         # 2. Courses
         self.stdout.write("\n[2/3] Tạo 9 khóa học theo Luật 2025...")
@@ -229,8 +240,36 @@ class Command(BaseCommand):
                 f"· {int(course.tuition_fee):,}đ".replace(",", ".") + f" · {status}"
             )
 
-        # 3. SiteSettings
-        self.stdout.write("\n[3/3] Khởi tạo SiteSettings singleton...")
+        # 3. DocumentType — 5 loại mặc định
+        self.stdout.write("\n[3/4] Khởi tạo 5 loại tài liệu mặc định...")
+        DOC_TYPES = [
+            ("cccd_front", "CCCD mặt trước", "person", True,
+             "Chụp rõ 4 góc, không chói sáng. Đọc được tên, ngày sinh, số CCCD."),
+            ("cccd_back", "CCCD mặt sau", "person", True,
+             "Chụp rõ 4 góc, không che mã QR và nơi cấp."),
+            ("portrait", "Ảnh chân dung", "person", True,
+             "Ảnh 4x6 nền trắng, áo có cổ, mặt rõ, không kính đen."),
+            ("health_cert", "Giấy khám sức khỏe", "person", True,
+             "Mẫu Bộ Y tế, có dấu bệnh viện, còn hạn 6 tháng."),
+            ("application_form", "Đơn đăng ký học lái xe", "enrollment", False,
+             "Đơn mẫu Sở GTVT. Trung tâm in giúp sau khi duyệt hồ sơ."),
+        ]
+        for sort_order, (code, name, scope, required, desc) in enumerate(DOC_TYPES, start=10):
+            dt, created = DocumentType.objects.update_or_create(
+                code=code,
+                defaults={
+                    "name": name,
+                    "scope": scope,
+                    "is_required": required,
+                    "description": desc,
+                    "sort_order": sort_order,
+                    "is_active": True,
+                },
+            )
+            self.stdout.write(f"  - {dt.name} ({code}): {'tạo mới' if created else 'cập nhật'}")
+
+        # 4. SiteSettings
+        self.stdout.write("\n[4/4] Khởi tạo SiteSettings singleton...")
         site, _ = SiteSettings.objects.get_or_create(pk=1)
         self.stdout.write(f"  - SiteSettings (brand: {site.brand_name}): OK")
 
