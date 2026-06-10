@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trung tâm Đào tạo Lái xe Đông Á · Học lái xe an toàn, chuẩn Sở GTVT</title>
+<meta name="description" content="Trung tâm đào tạo lái xe chính quy. 10.000 học viên đã đỗ. Tỉ lệ đỗ 89% lần đầu. 9 hạng GPLX theo Luật 2025. Đặt cọc giữ chỗ chỉ 200.000đ.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Geist', 'system-ui', 'sans-serif'] },
+        colors: {
+          ink:   { DEFAULT:'#0F1F1A', 60:'#56635E', 40:'#8A958F', 20:'#B8C0BC' },
+          paper: { DEFAULT:'#FFFFFF', alt:'#F7FAF9', tint:'#F0FAF4' },
+          line:  { soft:'#EDF1EF', base:'#E0E6E3', strong:'#0F1F1A' },
+          brand: {
+            50:'#F0FDF4', 100:'#DCFCE7', 200:'#BBF7D0', 300:'#86EFAC',
+            500:'#22C55E', 600:'#16A34A', 700:'#15803D', 800:'#166534',
+            900:'#14532D', 950:'#052E16'
+          },
+          warm: { amber:'#D97706' }
+        },
+        transitionTimingFunction: { 'out-expo': 'cubic-bezier(0.16,1,0.3,1)' }
+      }
+    }
+  }
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-feature-settings: "ss01", "ss02", "cv11"; -webkit-font-smoothing: antialiased; }
+  .reveal { opacity:0; transform:translateY(16px); transition:opacity .55s cubic-bezier(.16,1,.3,1), transform .55s cubic-bezier(.16,1,.3,1); }
+  .reveal.in { opacity:1; transform:translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .reveal { transition:opacity .15s; transform:none; } }
+  details > summary { list-style:none; cursor:pointer; }
+  details > summary::-webkit-details-marker { display:none; }
+  details[open] summary i.toggle { transform: rotate(45deg); }
+  summary i.toggle { transition: transform .3s cubic-bezier(.16,1,.3,1); }
+  ::selection { background:#16A34A; color:#fff; }
+  .num-display { font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
+</style>
+</head>
+<body class="bg-paper text-ink font-sans min-h-screen">
+
+<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-ink focus:text-white focus:px-4 focus:py-2 focus:rounded">Bỏ qua tới nội dung</a>
+
+<!-- ════════════════════════ HEADER ════════════════════════ -->
+<header class="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-line-soft">
+  <nav class="max-w-[1240px] mx-auto px-5 md:px-8 flex items-center justify-between h-16 md:h-18">
+    <a href="#" class="flex items-center gap-2.5">
+      <div class="size-8 bg-ink text-white rounded-md flex items-center justify-center font-bold text-sm">ĐA</div>
+      <span class="font-bold text-base tracking-tight">Lái xe Đông Á</span>
+    </a>
+    <ul class="hidden lg:flex items-center gap-8 text-[15px]">
+      <li><a href="#khoa-hoc" class="text-ink-60 hover:text-ink transition">Khóa học</a></li>
+      <li><a href="#loi-the" class="text-ink-60 hover:text-ink transition">Lợi thế</a></li>
+      <li><a href="#quy-trinh" class="text-ink-60 hover:text-ink transition">Quy trình</a></li>
+      <li><a href="#tin-tuc" class="text-ink-60 hover:text-ink transition">Tin tức</a></li>
+      <li><a href="#lien-he" class="text-ink-60 hover:text-ink transition">Liên hệ</a></li>
+    </ul>
+    <div class="flex items-center gap-2">
+      <a href="tel:0903456789" class="hidden md:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 hover:text-brand-700 transition">
+        <i class="ph ph-phone text-base"></i>
+        0903.456.789
+      </a>
+      <a href="#lien-he" class="inline-flex items-center gap-1.5 bg-brand-700 hover:bg-brand-800 text-white text-sm font-medium px-4 py-2.5 rounded-md transition-colors">
+        Tư vấn miễn phí
+      </a>
+      <button class="lg:hidden p-2" aria-label="Mở menu"><i class="ph ph-list text-2xl"></i></button>
+    </div>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ════════════════════════ HERO ════════════════════════ -->
+<section class="border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8 pt-16 md:pt-28 pb-16 md:pb-32">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+      <div class="lg:col-span-7 reveal">
+        <div class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-7">
+          <span class="size-1.5 bg-brand-600 rounded-full"></span>
+          Chính quy. Chuẩn Sở GTVT. 12 năm
+        </div>
+        <h1 class="text-[40px] md:text-6xl lg:text-7xl font-bold tracking-[-0.035em] leading-[1.04] pb-1">
+          Học lái xe<br>
+          <span class="italic font-medium text-brand-700">đúng lộ trình,</span><br>
+          không học vẹt.
+        </h1>
+        <p class="mt-7 md:mt-9 text-lg md:text-xl text-ink-60 leading-relaxed max-w-[58ch]">
+          Trung tâm đào tạo trên 10.000 học viên trong 5 năm gần nhất. Huấn luyện viên trung bình hơn 10 năm kinh nghiệm. Đặt cọc giữ chỗ chỉ 200.000đ.
+        </p>
+
+        <div class="mt-9 md:mt-11 flex flex-wrap items-center gap-3">
+          <a href="#khoa-hoc" class="inline-flex items-center gap-2 bg-ink hover:bg-brand-800 text-white font-medium text-base px-7 py-4 rounded-md transition-colors">
+            Xem khóa học
+            <i class="ph-bold ph-arrow-right text-sm"></i>
+          </a>
+          <a href="#lien-he" class="inline-flex items-center gap-2 border border-line-base hover:border-ink text-ink font-medium text-base px-7 py-4 rounded-md transition-colors">
+            Tư vấn miễn phí
+          </a>
+        </div>
+      </div>
+
+      <div class="lg:col-span-5 reveal">
+        <div class="aspect-[4/5] overflow-hidden rounded-2xl bg-paper-tint">
+          <img src="https://images.unsplash.com/photo-1502877338535-766e1452684a?w=900&h=1125&fit=crop&q=85" alt="Huấn luyện viên hướng dẫn học viên trong xe tập tại sân tập của trung tâm" class="size-full object-cover" loading="eager">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ TRUST STRIP ════════════════════════ -->
+<section class="border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8 py-12 md:py-16">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-4">
+      <div class="border-l-2 border-brand-600 pl-5">
+        <div class="text-4xl md:text-5xl font-bold num-display">10.247</div>
+        <div class="text-sm text-ink-60 mt-2">học viên đã đỗ</div>
+      </div>
+      <div class="border-l-2 border-brand-600 pl-5">
+        <div class="text-4xl md:text-5xl font-bold num-display">89<span class="text-2xl md:text-3xl text-ink-40">%</span></div>
+        <div class="text-sm text-ink-60 mt-2">tỉ lệ đỗ lần đầu</div>
+      </div>
+      <div class="border-l-2 border-brand-600 pl-5">
+        <div class="text-4xl md:text-5xl font-bold num-display">12 <span class="text-2xl md:text-3xl text-ink-40">năm</span></div>
+        <div class="text-sm text-ink-60 mt-2">kinh nghiệm đào tạo</div>
+      </div>
+      <div class="border-l-2 border-brand-600 pl-5">
+        <div class="text-4xl md:text-5xl font-bold num-display">8.000<span class="text-2xl md:text-3xl text-ink-40">m²</span></div>
+        <div class="text-sm text-ink-60 mt-2">sân tập riêng</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ KHÓA HỌC ════════════════════════ -->
+<section id="khoa-hoc" class="py-20 md:py-32 border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14 reveal">
+      <div class="max-w-2xl">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Khóa học</div>
+        <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+          Chín hạng GPLX,<br>một trung tâm.
+        </h2>
+        <p class="mt-5 text-lg text-ink-60 leading-relaxed">
+          Học phí công khai. Lịch khai giảng đều đặn. Không phụ phí phát sinh.
+        </p>
+      </div>
+      <a href="#" class="inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-800 font-medium underline-offset-4 hover:underline whitespace-nowrap">
+        Tất cả khóa học
+        <i class="ph-bold ph-arrow-right text-sm"></i>
+      </a>
+    </div>
+
+    <!-- Grid 9 hạng -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-7 reveal">
+
+      <!-- B số sàn (featured, có badge) -->
+      <article class="group flex flex-col bg-paper border border-brand-600 rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-transform duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt relative">
+          <img src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=640&h=400&fit=crop&q=85" alt="Xe ô tô con số sàn" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+          <div class="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-brand-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
+            <i class="ph-fill ph-fire text-amber-300"></i> Phổ biến nhất
+          </div>
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Ô tô con</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">B số sàn</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Lái mọi loại ô tô con dưới 9 chỗ, cả số sàn và số tự động.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">17.500.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 4 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 15/06
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- B số tự động -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1542362567-b07e54358753?w=640&h=400&fit=crop&q=85" alt="Bên trong ô tô con số tự động" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Ô tô con</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">B số tự động</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Dễ học, phù hợp người mới. Lái xe số tự động dưới 9 chỗ.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">18.500.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 4 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 22/06
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- A1 -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=640&h=400&fit=crop&q=85" alt="Xe máy phổ thông" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Mô tô</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">A1</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe máy phổ thông dưới 175cc. Lý thuyết + thực hành ngắn gọn.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">1.500.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 2 tuần
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Mở liên tục
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- A -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=640&h=400&fit=crop&q=85" alt="Xe phân khối lớn" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Mô tô</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">A</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe phân khối lớn trên 175cc. Thi sa hình mô tô đầy đủ.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">5.500.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 3 tuần
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 22/06
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- B1 -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=640&h=400&fit=crop&q=85" alt="Xe ba bánh điện" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Mô tô</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">B1</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe ba bánh, xe điện công suất lớn theo Luật 2025.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">2.500.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 2 tuần
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 18/06
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- C1 -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=640&h=400&fit=crop&q=85" alt="Xe tải nhẹ" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Xe tải</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">C1</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe tải dưới 7,5 tấn. Phù hợp người chạy giao hàng nội tỉnh.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">22.000.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 5 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 25/06
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- C -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1620891549027-942fdc95d3f5?w=640&h=400&fit=crop&q=85" alt="Xe tải hạng nặng" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Xe tải</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">C</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe tải trên 7,5 tấn. Hỗ trợ làm hồ sơ và phương tiện thi.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">28.000.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 5 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 01/07
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- D1 -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1565616462879-d7b21fdfff8e?w=640&h=400&fit=crop&q=85" alt="Xe khách nhỏ" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Xe khách</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">D1</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe khách đến 16 chỗ. Đào tạo bao gồm kỹ năng đường đèo.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">30.000.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 6 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 10/07
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+      <!-- D2 -->
+      <article class="group flex flex-col bg-paper border border-line-base hover:border-ink rounded-2xl overflow-hidden hover:-translate-y-0.5 transition-all duration-300 ease-out-expo cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden bg-paper-alt">
+          <img src="https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=640&h=400&fit=crop&q=85" alt="Xe khách lớn" class="size-full object-cover group-hover:scale-[1.03] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="p-6 md:p-7 flex flex-col flex-1">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Xe khách</div>
+          <h3 class="text-2xl font-bold tracking-tight mb-2">D2</h3>
+          <p class="text-ink-60 leading-relaxed mb-5 flex-1">Xe khách trên 16 chỗ. Cấp giấy phép lái xe đường dài.</p>
+          <div class="flex items-end justify-between pt-5 border-t border-line-soft">
+            <div>
+              <div class="text-2xl font-bold num-display">35.000.000đ</div>
+              <div class="flex items-center gap-2 text-sm text-ink-60 mt-1">
+                <i class="ph ph-calendar-blank"></i> 6 tháng
+                <span class="size-1 bg-ink-20 rounded-full"></span>
+                Khai giảng 15/07
+              </div>
+            </div>
+            <span class="text-brand-700 group-hover:translate-x-1 transition-transform"><i class="ph-bold ph-arrow-right text-lg"></i></span>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ LỢI THẾ ════════════════════════ -->
+<section id="loi-the" class="py-20 md:py-32 bg-paper-tint border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="max-w-3xl mb-14 reveal">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Lợi thế</div>
+      <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+        Sáu điều bạn nhận được<br>khi học ở đây.
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-line-base border border-line-base rounded-2xl overflow-hidden reveal">
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-shield-check text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">Cam kết hoàn cọc 100%</h3>
+        <p class="text-ink-60 leading-relaxed">Hủy đăng ký trong 7 ngày trước khai giảng, hoàn cọc nguyên vẹn. Không cần lý do.</p>
+      </div>
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-book-open-text text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">Tài liệu cập nhật Luật 2025</h3>
+        <p class="text-ink-60 leading-relaxed">600 câu lý thuyết mới biên soạn sát đề thi sát hạch hiện hành.</p>
+      </div>
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-graduation-cap text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">28 huấn luyện viên chứng chỉ</h3>
+        <p class="text-ink-60 leading-relaxed">Trung bình hơn 10 năm dạy lái. Lý lịch nghiệp vụ minh bạch tại văn phòng.</p>
+      </div>
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-map-pin-area text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">Sân tập riêng 8.000m²</h3>
+        <p class="text-ink-60 leading-relaxed">Đủ 11 bài sa hình. Không phải xếp lượt chờ chung với trung tâm khác.</p>
+      </div>
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-calendar-check text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">Lịch linh hoạt tối và cuối tuần</h3>
+        <p class="text-ink-60 leading-relaxed">Tự chọn ca trong ứng dụng học viên. Phù hợp người đi làm.</p>
+      </div>
+      <div class="bg-paper p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-5">
+          <i class="ph ph-device-mobile text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-2">Theo dõi tiến độ qua app</h3>
+        <p class="text-ink-60 leading-relaxed">Xem hồ sơ thiếu, công nợ, lịch học và kết quả thi thử mọi lúc.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ QUY TRÌNH ════════════════════════ -->
+<section id="quy-trinh" class="py-20 md:py-32 border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="max-w-3xl mb-14 reveal">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Quy trình</div>
+      <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+        Bốn bước rõ ràng<br>từ đăng ký tới cầm bằng.
+      </h2>
+    </div>
+
+    <div class="relative reveal">
+      <div class="hidden lg:block absolute top-7 left-[12.5%] right-[12.5%] h-px bg-line-base"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-6 lg:gap-10">
+        <div class="relative">
+          <div class="size-14 bg-paper border-2 border-ink text-ink rounded-full flex items-center justify-center font-bold text-lg num-display relative z-10">01</div>
+          <h3 class="font-bold text-lg mt-6 mb-2">Tư vấn và đặt cọc</h3>
+          <p class="text-ink-60 leading-relaxed">Gọi hotline hoặc để lại số. Sale liên hệ trong 5 phút. Cọc 200.000đ qua QR.</p>
+        </div>
+        <div class="relative">
+          <div class="size-14 bg-paper border-2 border-ink text-ink rounded-full flex items-center justify-center font-bold text-lg num-display relative z-10">02</div>
+          <h3 class="font-bold text-lg mt-6 mb-2">Hoàn thiện hồ sơ</h3>
+          <p class="text-ink-60 leading-relaxed">Chụp CCCD, ảnh chân dung, giấy khám sức khỏe qua app. Văn thư duyệt 1 ngày.</p>
+        </div>
+        <div class="relative">
+          <div class="size-14 bg-paper border-2 border-ink text-ink rounded-full flex items-center justify-center font-bold text-lg num-display relative z-10">03</div>
+          <h3 class="font-bold text-lg mt-6 mb-2">Học lý thuyết và thực hành</h3>
+          <p class="text-ink-60 leading-relaxed">Tự chọn ca trong app. Theo dõi tiến độ và công nợ ngay trên điện thoại.</p>
+        </div>
+        <div class="relative">
+          <div class="size-14 bg-brand-700 border-2 border-brand-700 text-white rounded-full flex items-center justify-center font-bold text-lg num-display relative z-10">04</div>
+          <h3 class="font-bold text-lg mt-6 mb-2">Thi sát hạch, nhận GPLX</h3>
+          <p class="text-ink-60 leading-relaxed">Trung tâm hỗ trợ làm hồ sơ thi. Nhận bằng sau 7 đến 10 ngày làm việc.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ HỌC PHÍ MINH BẠCH ════════════════════════ -->
+<section class="py-20 md:py-32 bg-paper-alt border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="max-w-3xl mb-14 reveal">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Học phí minh bạch</div>
+      <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+        Đóng theo tiến độ,<br>không phụ phí.
+      </h2>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-7 reveal">
+      <div class="bg-paper border border-line-base rounded-2xl p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-6">
+          <i class="ph ph-qr-code text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Quét QR, tự động xác nhận</h3>
+        <p class="text-ink-60 leading-relaxed mb-4">Tích hợp 7 ngân hàng lớn. Hệ thống xác nhận thanh toán trong 2 phút sau khi tiền vào.</p>
+        <div class="flex flex-wrap gap-1.5 pt-4 border-t border-line-soft">
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">Vietcombank</span>
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">BIDV</span>
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">ACB</span>
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">Techcombank</span>
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">MBBank</span>
+          <span class="text-xs font-medium text-ink-60 bg-paper-alt px-2.5 py-1 rounded">+2 NH</span>
+        </div>
+      </div>
+      <div class="bg-paper border border-line-base rounded-2xl p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-6">
+          <i class="ph ph-coins text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Đóng nhiều đợt</h3>
+        <p class="text-ink-60 leading-relaxed mb-4">Cọc giữ chỗ chỉ 200.000đ. Phần còn lại đóng theo nhiều đợt suốt khóa, không áp lực tiền lúc đầu.</p>
+        <div class="pt-4 border-t border-line-soft text-sm text-ink-60 space-y-2">
+          <div class="flex justify-between"><span>Đặt cọc</span><span class="font-medium text-ink">200.000đ</span></div>
+          <div class="flex justify-between"><span>Đợt 1 (khai giảng)</span><span class="font-medium text-ink">7.000.000đ</span></div>
+          <div class="flex justify-between"><span>Đợt 2 (giữa khóa)</span><span class="font-medium text-ink">5.000.000đ</span></div>
+          <div class="flex justify-between"><span>Đợt 3 (trước thi)</span><span class="font-medium text-ink">5.300.000đ</span></div>
+        </div>
+      </div>
+      <div class="bg-paper border border-line-base rounded-2xl p-7 md:p-9">
+        <div class="size-12 bg-brand-50 rounded-lg flex items-center justify-center mb-6">
+          <i class="ph ph-device-mobile text-2xl text-brand-700"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-3">Theo dõi công nợ trong app</h3>
+        <p class="text-ink-60 leading-relaxed mb-4">Đăng nhập <span class="font-medium text-ink">hocvien.tencongty.vn</span> bằng số điện thoại, xem ngay đã đóng bao nhiêu, còn lại bao nhiêu.</p>
+        <div class="pt-4 border-t border-line-soft">
+          <a href="#" class="inline-flex items-center gap-1 text-brand-700 hover:text-brand-800 font-medium text-sm">
+            Vào trang học viên
+            <i class="ph-bold ph-arrow-right text-xs"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ TESTIMONIALS ════════════════════════ -->
+<section class="py-20 md:py-32 border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14 reveal">
+      <div class="max-w-2xl">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Học viên thật</div>
+        <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+          Câu chuyện thật,<br>kết quả thật.
+        </h2>
+      </div>
+      <div class="flex items-center gap-2">
+        <i class="ph-fill ph-star text-amber-500 text-xl"></i>
+        <i class="ph-fill ph-star text-amber-500 text-xl"></i>
+        <i class="ph-fill ph-star text-amber-500 text-xl"></i>
+        <i class="ph-fill ph-star text-amber-500 text-xl"></i>
+        <i class="ph-fill ph-star text-amber-500 text-xl"></i>
+        <span class="ml-2 text-sm text-ink-60"><span class="font-semibold text-ink">4,9 / 5</span> · 1.247 đánh giá Google</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-7 reveal">
+      <article class="bg-paper border border-line-base rounded-2xl p-7 md:p-8 flex flex-col">
+        <i class="ph-fill ph-quotes text-3xl text-brand-300 mb-5"></i>
+        <p class="text-lg leading-relaxed flex-1">Tôi 47 tuổi, sợ học vì lâu không cầm sách. Thầy An kiên nhẫn giảng từng bài. Đỗ B số sàn ngay lần thi đầu.</p>
+        <div class="flex items-center gap-3 mt-7 pt-7 border-t border-line-soft">
+          <div class="size-11 bg-paper-tint rounded-full overflow-hidden">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&q=85" alt="Anh Nguyễn Văn Hùng" class="size-full object-cover">
+          </div>
+          <div>
+            <div class="font-semibold">Nguyễn Văn Hùng</div>
+            <div class="text-sm text-ink-60">B số sàn · 02/2026</div>
+          </div>
+        </div>
+      </article>
+      <article class="bg-paper border border-line-base rounded-2xl p-7 md:p-8 flex flex-col">
+        <i class="ph-fill ph-quotes text-3xl text-brand-300 mb-5"></i>
+        <p class="text-lg leading-relaxed flex-1">Lịch cuối tuần phù hợp với việc của tôi. Đặc biệt thích cách trung tâm gửi nhắc lịch qua Zalo, không phải lo quên buổi.</p>
+        <div class="flex items-center gap-3 mt-7 pt-7 border-t border-line-soft">
+          <div class="size-11 bg-paper-tint rounded-full overflow-hidden">
+            <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&q=85" alt="Chị Trần Thị Lan" class="size-full object-cover">
+          </div>
+          <div>
+            <div class="font-semibold">Trần Thị Lan</div>
+            <div class="text-sm text-ink-60">B số tự động · 04/2026</div>
+          </div>
+        </div>
+      </article>
+      <article class="bg-paper border border-line-base rounded-2xl p-7 md:p-8 flex flex-col">
+        <i class="ph-fill ph-quotes text-3xl text-brand-300 mb-5"></i>
+        <p class="text-lg leading-relaxed flex-1">Nâng từ B lên C để chạy xe tải gia đình. Hồ sơ làm gọn trong 1 tuần, không phải đi lại nhiều lần.</p>
+        <div class="flex items-center gap-3 mt-7 pt-7 border-t border-line-soft">
+          <div class="size-11 bg-paper-tint rounded-full overflow-hidden">
+            <img src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&h=100&fit=crop&q=85" alt="Anh Lê Minh Đức" class="size-full object-cover">
+          </div>
+          <div>
+            <div class="font-semibold">Lê Minh Đức</div>
+            <div class="text-sm text-ink-60">Nâng B lên C · 05/2026</div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ TIN TỨC ════════════════════════ -->
+<section id="tin-tuc" class="py-20 md:py-32 bg-paper-alt border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-14 reveal">
+      <div class="max-w-2xl">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Tin tức và cẩm nang</div>
+        <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+          Quy định mới, mẹo thi,<br>kinh nghiệm thực tế.
+        </h2>
+      </div>
+      <a href="#" class="inline-flex items-center gap-1.5 text-brand-700 hover:text-brand-800 font-medium underline-offset-4 hover:underline whitespace-nowrap">
+        Tất cả tin tức
+        <i class="ph-bold ph-arrow-right text-sm"></i>
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 reveal">
+      <article class="lg:col-span-7 group cursor-pointer">
+        <div class="aspect-[16/10] overflow-hidden rounded-2xl mb-5 bg-paper-tint">
+          <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=900&h=560&fit=crop&q=85" alt="Cover quy định hạng GPLX 2025" class="size-full object-cover group-hover:scale-[1.02] transition-transform duration-500 ease-out-expo">
+        </div>
+        <div class="text-xs font-semibold uppercase tracking-wider text-brand-700">Quy định</div>
+        <h3 class="text-2xl md:text-3xl font-bold tracking-tight mt-3 leading-tight group-hover:text-brand-700 transition">
+          Cập nhật quy định mới về hạng GPLX 2025
+        </h3>
+        <p class="mt-3 text-ink-60 leading-relaxed max-w-[58ch]">
+          Luật Trật tự An toàn giao thông đường bộ thay hệ 8 hạng cũ thành 9 hạng mới, áp dụng từ 01/01/2025.
+        </p>
+        <div class="mt-4 flex items-center gap-3 text-sm text-ink-60">
+          <span>15/05/2026</span>
+          <span class="size-1 bg-ink-20 rounded-full"></span>
+          <span>5 phút đọc</span>
+        </div>
+      </article>
+
+      <div class="lg:col-span-5 space-y-6">
+        <article class="grid grid-cols-[120px_1fr] md:grid-cols-[140px_1fr] gap-4 group cursor-pointer pb-6 border-b border-line-soft">
+          <div class="aspect-square overflow-hidden rounded-xl bg-paper-tint">
+            <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=320&h=320&fit=crop&q=85" alt="Cover mẹo thi B số sàn" class="size-full object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out-expo">
+          </div>
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-brand-700">Mẹo thi</div>
+            <h3 class="text-lg font-bold tracking-tight mt-2 leading-tight group-hover:text-brand-700 transition">10 mẹo thi đỗ B số sàn ngay lần đầu</h3>
+            <div class="mt-2 flex items-center gap-2 text-xs text-ink-60">
+              <span>20/04/2026</span>
+              <span class="size-1 bg-ink-20 rounded-full"></span>
+              <span>7 phút</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="grid grid-cols-[120px_1fr] md:grid-cols-[140px_1fr] gap-4 group cursor-pointer pb-6 border-b border-line-soft">
+          <div class="aspect-square overflow-hidden rounded-xl bg-paper-tint">
+            <img src="https://images.unsplash.com/photo-1486754735734-325b5831c3ad?w=320&h=320&fit=crop&q=85" alt="Cover bài thi sa hình" class="size-full object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out-expo">
+          </div>
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-brand-700">Kinh nghiệm</div>
+            <h3 class="text-lg font-bold tracking-tight mt-2 leading-tight group-hover:text-brand-700 transition">Thi sa hình 11 bài, lỗi nào hay rớt nhất</h3>
+            <div class="mt-2 flex items-center gap-2 text-xs text-ink-60">
+              <span>10/04/2026</span>
+              <span class="size-1 bg-ink-20 rounded-full"></span>
+              <span>6 phút</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="grid grid-cols-[120px_1fr] md:grid-cols-[140px_1fr] gap-4 group cursor-pointer">
+          <div class="aspect-square overflow-hidden rounded-xl bg-paper-tint">
+            <img src="https://images.unsplash.com/photo-1517649763962-0c623066013b?w=320&h=320&fit=crop&q=85" alt="Cover giấy khám sức khỏe lái xe" class="size-full object-cover group-hover:scale-[1.05] transition-transform duration-500 ease-out-expo">
+          </div>
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-brand-700">Hồ sơ</div>
+            <h3 class="text-lg font-bold tracking-tight mt-2 leading-tight group-hover:text-brand-700 transition">Giấy khám sức khỏe lái xe khám ở đâu</h3>
+            <div class="mt-2 flex items-center gap-2 text-xs text-ink-60">
+              <span>02/04/2026</span>
+              <span class="size-1 bg-ink-20 rounded-full"></span>
+              <span>4 phút</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ MAP + CONTACT ════════════════════════ -->
+<section class="py-20 md:py-32 border-b border-line-soft">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
+      <div class="lg:col-span-5 reveal">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Vị trí</div>
+        <h2 class="text-4xl md:text-5xl font-bold tracking-[-0.03em] leading-[1.05] mb-8">
+          Trung tâm ở Đồng Xoài,<br>dễ tìm dễ đến.
+        </h2>
+
+        <div class="space-y-6">
+          <div class="flex gap-4">
+            <div class="size-11 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+              <i class="ph ph-map-pin text-xl text-brand-700"></i>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-ink-40 uppercase tracking-wider mb-1">Địa chỉ</div>
+              <div class="font-medium leading-relaxed">123 Đường Phú Riềng Đỏ, Phường Tân Phú,<br>TP Đồng Xoài, Bình Phước</div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="size-11 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+              <i class="ph ph-phone text-xl text-brand-700"></i>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-ink-40 uppercase tracking-wider mb-1">Hotline</div>
+              <a href="tel:0903456789" class="font-medium leading-relaxed text-lg hover:text-brand-700 transition">0903.456.789</a>
+              <div class="text-sm text-ink-60 mt-1">Hỗ trợ 24/7 trong khóa đào tạo</div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="size-11 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+              <i class="ph ph-chat-circle-text text-xl text-brand-700"></i>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-ink-40 uppercase tracking-wider mb-1">Zalo OA</div>
+              <div class="font-medium leading-relaxed">Lái xe Đông Á</div>
+              <a href="#" class="inline-flex items-center gap-1 text-brand-700 hover:text-brand-800 font-medium text-sm mt-1">
+                Nhắn tin Zalo
+                <i class="ph-bold ph-arrow-right text-xs"></i>
+              </a>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="size-11 bg-brand-50 rounded-lg flex items-center justify-center shrink-0">
+              <i class="ph ph-clock text-xl text-brand-700"></i>
+            </div>
+            <div>
+              <div class="text-sm font-medium text-ink-40 uppercase tracking-wider mb-1">Giờ làm việc</div>
+              <div class="font-medium leading-relaxed">T2 đến T7: 7:30 đến 18:00<br>Chủ nhật: 8:00 đến 12:00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-7 reveal">
+        <div class="aspect-[4/3] lg:aspect-auto lg:h-full rounded-2xl overflow-hidden border border-line-base bg-paper-tint">
+          <iframe
+            src="https://maps.google.com/maps?q=Dong+Xoai+Binh+Phuoc&t=&z=14&ie=UTF8&iwloc=&output=embed"
+            width="100%"
+            height="100%"
+            style="border:0; min-height: 480px;"
+            allowfullscreen=""
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            title="Bản đồ vị trí trung tâm Đào tạo Lái xe Đông Á tại Đồng Xoài, Bình Phước">
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ FAQ ════════════════════════ -->
+<section class="py-20 md:py-32 border-b border-line-soft">
+  <div class="max-w-[900px] mx-auto px-5 md:px-8">
+    <div class="mb-14 reveal">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-4">Hỏi đáp</div>
+      <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+        Câu hỏi thường gặp.
+      </h2>
+      <p class="mt-5 text-lg text-ink-60 leading-relaxed">
+        Không thấy câu trả lời bạn cần? Gọi 0903.456.789 hoặc nhắn Zalo.
+      </p>
+    </div>
+
+    <div class="border-t border-line-base reveal">
+      <details class="group border-b border-line-base" open>
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Học bao lâu thì có bằng?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          Tùy hạng. Hạng A1 khoảng 2 tuần. Hạng B số sàn và B số tự động khoảng 4 tháng tính từ ngày khai giảng tới khi nhận bằng. Hạng C và D dài hơn, 5 đến 6 tháng.
+        </div>
+      </details>
+
+      <details class="group border-b border-line-base">
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Hồ sơ cần những gì?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          CCCD 2 mặt, ảnh chân dung 4x6, giấy khám sức khỏe theo mẫu Bộ Y tế (khám tại bệnh viện liên kết của trung tâm). Khóa nâng hạng cần thêm bản photo bằng lái cũ.
+        </div>
+      </details>
+
+      <details class="group border-b border-line-base">
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Có thể đóng cọc trước rồi đóng phần còn lại sau không?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          Có. Cọc giữ chỗ chỉ 200.000đ. Phần còn lại đóng theo nhiều đợt suốt khóa học. Lịch đóng cụ thể có trong hợp đồng và hiển thị trong ứng dụng học viên.
+        </div>
+      </details>
+
+      <details class="group border-b border-line-base">
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Lớp buổi tối hoặc cuối tuần có không?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          Có. Lớp lý thuyết mở vào tối thứ Hai, Tư, Sáu (18:30 đến 21:00) và sáng Chủ nhật. Lịch thực hành chọn ca trong app, bao gồm cả khung 17:00 đến 19:00.
+        </div>
+      </details>
+
+      <details class="group border-b border-line-base">
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Phí thi lại nếu trượt là bao nhiêu?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          Phí thi lại do Sở GTVT quy định, thường 90.000đ cho phần lý thuyết và 300.000đ cho phần thực hành. Trung tâm hỗ trợ làm lại hồ sơ thi miễn phí.
+        </div>
+      </details>
+
+      <details class="group border-b border-line-base">
+        <summary class="flex items-center justify-between gap-6 py-6 md:py-7">
+          <span class="font-semibold text-lg md:text-xl">Có thuê xe tập ngoài giờ không?</span>
+          <i class="ph-bold ph-plus toggle text-xl text-ink-40 shrink-0"></i>
+        </summary>
+        <div class="pb-6 md:pb-7 text-ink-60 leading-relaxed max-w-[70ch]">
+          Có. Học viên đang theo khóa được ưu tiên đặt lịch xe tập thêm với phụ phí 250.000đ mỗi giờ. Đặt qua app hoặc liên hệ văn phòng.
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════ CTA + FORM ════════════════════════ -->
+<section id="lien-he" class="py-20 md:py-28 bg-brand-950 text-white">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start reveal">
+      <div class="lg:col-span-6">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-300 mb-5">Bắt đầu hôm nay</div>
+        <h2 class="text-4xl md:text-6xl font-bold tracking-[-0.03em] leading-[1.05]">
+          Sẵn sàng<br>cầm vô lăng?
+        </h2>
+        <p class="mt-6 text-lg text-brand-100/80 leading-relaxed max-w-xl">
+          Để lại số điện thoại, đội tư vấn gọi lại trong 5 phút và hướng dẫn từng bước. Hoàn toàn miễn phí.
+        </p>
+
+        <div class="mt-10 space-y-4">
+          <div class="flex gap-4 items-center">
+            <i class="ph-fill ph-check-circle text-2xl text-brand-300"></i>
+            <span class="text-brand-100/90">Tư vấn 1 đối 1 trong 5 phút</span>
+          </div>
+          <div class="flex gap-4 items-center">
+            <i class="ph-fill ph-check-circle text-2xl text-brand-300"></i>
+            <span class="text-brand-100/90">Không spam, không bán thông tin</span>
+          </div>
+          <div class="flex gap-4 items-center">
+            <i class="ph-fill ph-check-circle text-2xl text-brand-300"></i>
+            <span class="text-brand-100/90">Hoàn cọc 100% nếu hủy trong 7 ngày</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-6">
+        <form class="bg-white text-ink rounded-2xl p-6 md:p-10">
+          <h3 class="font-bold text-xl mb-1">Tư vấn miễn phí</h3>
+          <p class="text-sm text-ink-60 mb-6">Điền thông tin, sale gọi lại trong 5 phút.</p>
+          <div class="space-y-4 mb-6">
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">Họ và tên</span>
+              <input type="text" class="h-12 px-4 bg-white border border-line-base rounded-md focus:outline-none focus:border-brand-700 focus:ring-2 focus:ring-brand-100 transition" placeholder="Nguyễn Văn A">
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">Số điện thoại</span>
+              <input type="tel" class="h-12 px-4 bg-white border border-line-base rounded-md focus:outline-none focus:border-brand-700 focus:ring-2 focus:ring-brand-100 transition" placeholder="0903456789">
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="text-sm font-medium">Hạng xe quan tâm</span>
+              <select class="h-12 px-4 bg-white border border-line-base rounded-md focus:outline-none focus:border-brand-700 focus:ring-2 focus:ring-brand-100 transition">
+                <option>Chọn hạng xe</option>
+                <optgroup label="Mô tô"><option>A1</option><option>A</option><option>B1</option></optgroup>
+                <optgroup label="Ô tô con"><option>B số tự động</option><option>B số sàn</option></optgroup>
+                <optgroup label="Xe tải, xe khách"><option>C1</option><option>C</option><option>D1</option><option>D2</option></optgroup>
+              </select>
+            </label>
+          </div>
+          <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-brand-700 hover:bg-brand-800 text-white font-medium text-base h-12 rounded-md transition-colors">
+            Gửi yêu cầu tư vấn
+            <i class="ph-bold ph-arrow-right text-sm"></i>
+          </button>
+          <p class="text-xs text-ink-40 text-center mt-3">Không spam. Không bán thông tin cho bên thứ ba.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ════════════════════════ FOOTER ════════════════════════ -->
+<footer class="bg-paper border-t border-line-base py-14 md:py-20">
+  <div class="max-w-[1240px] mx-auto px-5 md:px-8">
+    <div class="grid grid-cols-2 md:grid-cols-12 gap-10 mb-12">
+      <div class="col-span-2 md:col-span-4">
+        <a href="#" class="flex items-center gap-2.5 mb-5">
+          <div class="size-8 bg-ink text-white rounded-md flex items-center justify-center font-bold text-sm">ĐA</div>
+          <span class="font-bold text-base tracking-tight">Lái xe Đông Á</span>
+        </a>
+        <p class="text-ink-60 leading-relaxed max-w-xs">
+          Trung tâm đào tạo lái xe chính quy. Giấy phép số 142/2014/GP-SGTVT do Sở GTVT Bình Phước cấp.
+        </p>
+        <div class="flex gap-3 mt-6">
+          <a href="#" aria-label="Facebook" class="size-9 border border-line-base rounded-lg flex items-center justify-center hover:bg-ink hover:text-white hover:border-ink transition"><i class="ph ph-facebook-logo"></i></a>
+          <a href="#" aria-label="Zalo" class="size-9 border border-line-base rounded-lg flex items-center justify-center hover:bg-ink hover:text-white hover:border-ink transition"><i class="ph ph-chat-circle-text"></i></a>
+          <a href="#" aria-label="YouTube" class="size-9 border border-line-base rounded-lg flex items-center justify-center hover:bg-ink hover:text-white hover:border-ink transition"><i class="ph ph-youtube-logo"></i></a>
+        </div>
+      </div>
+
+      <div class="md:col-span-2">
+        <h4 class="font-semibold mb-4 text-sm">Khóa học</h4>
+        <ul class="space-y-2.5 text-sm text-ink-60">
+          <li><a href="#" class="hover:text-ink transition">Mô tô</a></li>
+          <li><a href="#" class="hover:text-ink transition">Ô tô con</a></li>
+          <li><a href="#" class="hover:text-ink transition">Xe tải</a></li>
+          <li><a href="#" class="hover:text-ink transition">Xe khách</a></li>
+          <li><a href="#" class="hover:text-ink transition">Nâng hạng</a></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-2">
+        <h4 class="font-semibold mb-4 text-sm">Tin tức</h4>
+        <ul class="space-y-2.5 text-sm text-ink-60">
+          <li><a href="#" class="hover:text-ink transition">Quy định mới</a></li>
+          <li><a href="#" class="hover:text-ink transition">Mẹo thi</a></li>
+          <li><a href="#" class="hover:text-ink transition">Hồ sơ</a></li>
+          <li><a href="#" class="hover:text-ink transition">Kinh nghiệm</a></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-4">
+        <h4 class="font-semibold mb-4 text-sm">Liên hệ</h4>
+        <ul class="space-y-3 text-sm text-ink-60">
+          <li class="flex gap-2.5"><i class="ph ph-map-pin text-brand-700 shrink-0 mt-0.5"></i>123 Đường Phú Riềng Đỏ, P. Tân Phú, TP Đồng Xoài, Bình Phước</li>
+          <li class="flex gap-2.5"><i class="ph ph-phone text-brand-700 shrink-0 mt-0.5"></i><a href="tel:0903456789" class="hover:text-ink transition">0903.456.789</a></li>
+          <li class="flex gap-2.5"><i class="ph ph-envelope text-brand-700 shrink-0 mt-0.5"></i><a href="mailto:info@tencongty.vn" class="hover:text-ink transition">info@tencongty.vn</a></li>
+          <li class="flex gap-2.5"><i class="ph ph-clock text-brand-700 shrink-0 mt-0.5"></i>T2 đến T7: 7:30 đến 18:00. CN: 8:00 đến 12:00</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pt-8 border-t border-line-soft flex flex-col md:flex-row gap-4 md:justify-between items-start md:items-center text-sm text-ink-40">
+      <div>© 2026 Trung tâm Lái xe Đông Á. Mọi quyền được bảo lưu.</div>
+      <ul class="flex gap-6">
+        <li><a href="#" class="hover:text-ink transition">Chính sách bảo mật</a></li>
+        <li><a href="#" class="hover:text-ink transition">Điều khoản sử dụng</a></li>
+        <li><a href="#" class="hover:text-ink transition">Hoàn cọc</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>

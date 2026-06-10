@@ -1,0 +1,232 @@
+"""Common settings — dev/prod kế thừa từ file này."""
+from pathlib import Path
+
+import environ
+import dj_database_url
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+env = environ.Env()
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    env.read_env(str(env_file))
+
+SECRET_KEY = env.str("DJANGO_SECRET_KEY", default="dev-insecure-change-me")
+DEBUG = env.bool("DJANGO_DEBUG", default=False)
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+
+# Custom config
+BASE_DOMAIN = env.str("BASE_DOMAIN", default="tencongty.vn")
+SITE_PUBLIC_URL = env.str("SITE_PUBLIC_URL", default="http://localhost:3000")
+SITE_STUDENT_URL = env.str("SITE_STUDENT_URL", default="http://localhost:3001")
+SITE_CRM_URL = env.str("SITE_CRM_URL", default="http://localhost:8000")
+
+INSTALLED_APPS = [
+    # django-unfold MUST come BEFORE django.contrib.admin
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
+    "unfold.contrib.import_export",
+    # Django core
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # Third-party
+    "rest_framework",
+    "django_filters",
+    "corsheaders",
+    "solo",
+    # Local apps
+    "apps.core",
+    "apps.users",
+    "apps.courses",
+    "apps.leads",
+]
+
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.template.context_processors.debug",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+# Database — mặc định SQLite cho dev nhanh, dùng env DATABASE_URL để switch sang Postgres
+DATABASE_URL = env.str("DATABASE_URL", default="")
+if DATABASE_URL:
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# Auth
+AUTH_USER_MODEL = "users.User"
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/admin/"
+
+# Locale (Vietnam)
+LANGUAGE_CODE = "vi"
+TIME_ZONE = "Asia/Ho_Chi_Minh"
+USE_I18N = True
+USE_TZ = True
+LANGUAGES = [("vi", "Tiếng Việt"), ("en", "English")]
+
+# Static + Media
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# CORS
+CORS_ALLOWED_ORIGINS = [
+    SITE_PUBLIC_URL,
+    SITE_STUDENT_URL,
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 25,
+    "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S%z",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "300/minute",
+        "lead_capture": "30/hour",   # chống spam form
+    },
+}
+
+# Celery
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default="") or env.str("REDIS_URL", default="memory://")
+CELERY_RESULT_BACKEND = env.str("REDIS_URL", default="cache+memory://")
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+
+# Cache (default in-memory, override prod sang Redis)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "crm-default",
+    }
+}
+
+# Logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} | {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "apps": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+    },
+}
+
+# django-unfold theme
+UNFOLD = {
+    "SITE_TITLE": "CRM Tuyển Sinh",
+    "SITE_HEADER": "CRM Tuyển Sinh Học Lái Xe",
+    "SITE_SUBHEADER": "Quản lý lead, đơn hàng, hồ sơ học viên",
+    "SITE_SYMBOL": "school",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "COLORS": {
+        "primary": {
+            "50": "240 253 244",
+            "100": "220 252 231",
+            "200": "187 247 208",
+            "300": "134 239 172",
+            "400": "74 222 128",
+            "500": "34 197 94",
+            "600": "22 163 74",
+            "700": "21 128 61",
+            "800": "22 101 52",
+            "900": "20 83 45",
+            "950": "5 46 22",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+    },
+}
+
+# External integrations
+TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_CHAT_ID = env.str("TELEGRAM_CHAT_ID", default="")
+CASSO_WEBHOOK_SECRET = env.str("CASSO_WEBHOOK_SECRET", default="")
+CASSO_API_KEY = env.str("CASSO_API_KEY", default="")
+ZNS_ACCESS_TOKEN = env.str("ZNS_ACCESS_TOKEN", default="")
+ZNS_REFRESH_TOKEN = env.str("ZNS_REFRESH_TOKEN", default="")
+ZNS_TEMPLATE_ID_OTP = env.str("ZNS_TEMPLATE_ID_OTP", default="")
+ZNS_TEMPLATE_ID_DEPOSIT = env.str("ZNS_TEMPLATE_ID_DEPOSIT", default="")

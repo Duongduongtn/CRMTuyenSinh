@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thanh toán cọc · ORD-12345 · Trung tâm Lái xe Đông Á</title>
+<meta name="robots" content="noindex,nofollow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['Geist', 'system-ui', 'sans-serif'] },
+      colors: {
+        ink: { DEFAULT:'#0F1F1A', 60:'#56635E', 40:'#8A958F', 20:'#B8C0BC' },
+        paper: { DEFAULT:'#FFFFFF', alt:'#F7FAF9', tint:'#F0FAF4' },
+        line: { soft:'#EDF1EF', base:'#E0E6E3' },
+        brand: { 50:'#F0FDF4', 100:'#DCFCE7', 300:'#86EFAC', 600:'#16A34A', 700:'#15803D', 800:'#166534', 900:'#14532D', 950:'#052E16' }
+      }
+    } }
+  }
+</script>
+<style>
+  body { font-feature-settings: "ss01","ss02","cv11"; -webkit-font-smoothing: antialiased; }
+  .num-display { font-variant-numeric: tabular-nums; letter-spacing: -0.04em; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+  .pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+  /* QR pattern fake */
+  .qr-pattern {
+    background-image:
+      linear-gradient(45deg, #0F1F1A 25%, transparent 25%),
+      linear-gradient(-45deg, #0F1F1A 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #0F1F1A 75%),
+      linear-gradient(-45deg, transparent 75%, #0F1F1A 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  }
+</style>
+</head>
+<body class="bg-paper-alt text-ink font-sans min-h-screen">
+
+<!-- HEADER tối giản -->
+<header class="bg-paper border-b border-line-soft">
+  <div class="max-w-[1100px] mx-auto px-5 md:px-8 flex items-center justify-between h-16">
+    <a href="index.html" class="flex items-center gap-2.5">
+      <div class="size-8 bg-ink text-white rounded-md flex items-center justify-center font-bold text-sm">ĐA</div>
+      <span class="font-bold text-base tracking-tight">Lái xe Đông Á</span>
+    </a>
+    <a href="tel:0903456789" class="inline-flex items-center gap-1.5 text-sm font-medium hover:text-brand-700 transition">
+      <i class="ph ph-phone"></i>
+      0903.456.789
+    </a>
+  </div>
+</header>
+
+<main class="py-10 md:py-16">
+  <div class="max-w-[1100px] mx-auto px-5 md:px-8">
+
+    <!-- BREADCRUMB -->
+    <nav class="flex items-center gap-2 text-sm text-ink-40 mb-8">
+      <a href="index.html" class="hover:text-ink transition">Trang chủ</a>
+      <i class="ph ph-caret-right text-xs"></i>
+      <span class="text-ink-60">Thanh toán cọc</span>
+    </nav>
+
+    <!-- HEADER -->
+    <div class="mb-10">
+      <div class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 mb-3">Bước 2 trong 4</div>
+      <h1 class="text-3xl md:text-5xl font-bold tracking-[-0.03em] leading-[1.05] mb-3">
+        Thanh toán cọc khóa học
+      </h1>
+      <p class="text-lg text-ink-60 max-w-[60ch]">
+        Quét QR bằng app ngân hàng. Hệ thống tự động xác nhận trong 2 phút sau khi tiền vào tài khoản.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+
+      <!-- LEFT: Thông tin đơn -->
+      <div class="lg:col-span-5">
+        <div class="bg-paper border border-line-base rounded-2xl p-6 md:p-7">
+          <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-4">Thông tin đơn hàng</div>
+
+          <div class="space-y-4 mb-6 pb-6 border-b border-line-soft">
+            <div>
+              <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Mã đơn</div>
+              <div class="font-bold text-xl num-display">ORD-12345</div>
+            </div>
+            <div>
+              <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Học viên</div>
+              <div class="font-medium">Nguyễn Văn A</div>
+              <div class="text-sm text-ink-60 mt-0.5">0903.456.789</div>
+            </div>
+            <div>
+              <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Khóa học</div>
+              <div class="font-medium">B số sàn</div>
+              <div class="text-sm text-ink-60 mt-0.5">Khai giảng 15/06/2026</div>
+            </div>
+          </div>
+
+          <!-- Chi tiết tiền -->
+          <div class="space-y-3 mb-6 pb-6 border-b border-line-soft text-sm">
+            <div class="flex justify-between">
+              <span class="text-ink-60">Học phí khóa</span>
+              <span class="font-medium">17.500.000đ</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-ink-60">Đặt cọc giữ chỗ</span>
+              <span class="font-bold">1.000.000đ</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-ink-60">Còn lại đóng theo nhiều đợt</span>
+              <span class="font-medium">16.500.000đ</span>
+            </div>
+          </div>
+
+          <!-- Tổng phải thanh toán ngay -->
+          <div class="bg-paper-tint border border-brand-200 rounded-xl p-5">
+            <div class="text-xs font-medium text-brand-800 uppercase tracking-wider mb-2">Cần thanh toán ngay</div>
+            <div class="text-4xl font-bold num-display text-brand-800">1.000.000<span class="text-xl">đ</span></div>
+            <div class="text-xs text-ink-60 mt-2 flex items-center gap-1.5">
+              <i class="ph ph-shield-check text-brand-700"></i>
+              Hoàn 100% nếu hủy trong 7 ngày trước khai giảng
+            </div>
+          </div>
+
+          <!-- Trợ giúp -->
+          <div class="mt-6 text-sm text-ink-60">
+            <div class="font-medium text-ink mb-2">Gặp trục trặc?</div>
+            <div>Gọi <a href="tel:0903456789" class="text-brand-700 font-medium hover:underline">0903.456.789</a> hoặc <a href="#" class="text-brand-700 font-medium hover:underline">nhắn Zalo</a>.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: QR Code -->
+      <div class="lg:col-span-7">
+        <div class="bg-paper border border-line-base rounded-2xl p-6 md:p-8">
+
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <div class="text-xs font-medium uppercase tracking-wider text-ink-40">Bước 2</div>
+              <h2 class="text-2xl font-bold mt-1">Quét QR thanh toán</h2>
+            </div>
+            <div class="inline-flex items-center gap-2 bg-brand-50 text-brand-800 px-3 py-1.5 rounded-full text-sm font-medium">
+              <span class="size-2 bg-brand-600 rounded-full pulse-dot"></span>
+              Đang chờ thanh toán
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <!-- QR code -->
+            <div class="flex flex-col items-center">
+              <div class="aspect-square w-full max-w-[260px] bg-white border-2 border-ink rounded-xl p-5 relative">
+                <div class="size-full qr-pattern rounded-md"></div>
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-12 bg-paper border-2 border-ink rounded-md flex items-center justify-center">
+                  <span class="font-bold text-sm">ĐA</span>
+                </div>
+              </div>
+              <div class="mt-4 text-sm text-ink-60 text-center">VietQR · Mọi ngân hàng Việt Nam</div>
+            </div>
+
+            <!-- Bank info -->
+            <div class="space-y-3">
+              <div class="text-xs font-medium uppercase tracking-wider text-ink-40 mb-2">Hoặc chuyển khoản thủ công</div>
+
+              <div class="bg-paper-tint border border-line-soft rounded-lg p-4">
+                <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Ngân hàng</div>
+                <div class="flex items-center justify-between">
+                  <div class="font-semibold">ACB</div>
+                  <button class="text-xs text-brand-700 font-medium hover:underline">Sao chép</button>
+                </div>
+              </div>
+
+              <div class="bg-paper-tint border border-line-soft rounded-lg p-4">
+                <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Số tài khoản</div>
+                <div class="flex items-center justify-between">
+                  <div class="font-bold text-xl num-display">12345678901</div>
+                  <button class="text-xs text-brand-700 font-medium hover:underline">Sao chép</button>
+                </div>
+              </div>
+
+              <div class="bg-paper-tint border border-line-soft rounded-lg p-4">
+                <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Chủ tài khoản</div>
+                <div class="font-semibold">TRUNG TAM LAI XE DONG A</div>
+              </div>
+
+              <div class="bg-paper-tint border border-line-soft rounded-lg p-4">
+                <div class="text-xs text-ink-40 uppercase tracking-wider mb-1">Số tiền</div>
+                <div class="flex items-center justify-between">
+                  <div class="font-bold text-xl num-display text-brand-800">1.000.000đ</div>
+                  <button class="text-xs text-brand-700 font-medium hover:underline">Sao chép</button>
+                </div>
+              </div>
+
+              <div class="bg-brand-50 border border-brand-200 rounded-lg p-4">
+                <div class="text-xs text-brand-800 uppercase tracking-wider font-medium mb-1">Nội dung chuyển khoản · BẮT BUỘC</div>
+                <div class="flex items-center justify-between">
+                  <div class="font-bold text-xl num-display">ORD-12345</div>
+                  <button class="text-xs text-brand-700 font-medium hover:underline">Sao chép</button>
+                </div>
+                <div class="text-xs text-ink-60 mt-2 flex items-start gap-1.5">
+                  <i class="ph ph-info text-base text-brand-700 shrink-0 mt-0.5"></i>
+                  Ghi đúng mã đơn để hệ thống tự động xác nhận.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trạng thái live -->
+          <div class="mt-6 pt-6 border-t border-line-soft">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="size-3 bg-brand-600 rounded-full pulse-dot"></span>
+                <div>
+                  <div class="font-medium text-sm">Đang đối soát giao dịch</div>
+                  <div class="text-xs text-ink-60 mt-0.5">Tự động cập nhật khi tiền vào tài khoản trung tâm</div>
+                </div>
+              </div>
+              <button class="text-sm text-ink-60 hover:text-ink underline-offset-4 hover:underline transition">Làm mới</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Lưu ý -->
+        <div class="mt-5 bg-paper border border-line-base rounded-xl p-5">
+          <div class="flex gap-3">
+            <i class="ph ph-warning-circle text-2xl text-warm-amber shrink-0" style="color:#D97706"></i>
+            <div class="text-sm text-ink-60 leading-relaxed">
+              <span class="font-medium text-ink">Vui lòng thanh toán trong 30 phút.</span> Sau thời gian này, hệ thống tự hủy đơn để giải phóng suất cho học viên khác. Bạn vẫn có thể tạo đơn mới sau đó.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BƯỚC TIẾP THEO (sau khi thanh toán) -->
+    <div class="mt-12 bg-brand-950 text-white rounded-2xl p-7 md:p-10 hidden" id="success-section">
+      <div class="inline-flex items-center gap-2 bg-brand-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+        <i class="ph-fill ph-check-circle"></i> Đã nhận cọc 1.000.000đ
+      </div>
+      <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4">Cảm ơn anh Nguyễn Văn A</h2>
+      <p class="text-brand-100/80 leading-relaxed mb-8 max-w-2xl">
+        Cọc khóa B số sàn đã được ghi nhận. Bước tiếp theo, đăng nhập trang học viên để bổ sung hồ sơ và xem lịch khai giảng.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="bg-brand-900/50 border border-brand-800 rounded-xl p-5">
+          <div class="text-xs font-medium uppercase tracking-wider text-brand-300 mb-2">01</div>
+          <div class="font-semibold mb-1">Đăng nhập</div>
+          <div class="text-sm text-brand-100/70">hocvien.tencongty.vn dùng SĐT 0903.456.789</div>
+        </div>
+        <div class="bg-brand-900/50 border border-brand-800 rounded-xl p-5">
+          <div class="text-xs font-medium uppercase tracking-wider text-brand-300 mb-2">02</div>
+          <div class="font-semibold mb-1">Bổ sung hồ sơ</div>
+          <div class="text-sm text-brand-100/70">CCCD, ảnh chân dung, giấy khám sức khỏe</div>
+        </div>
+        <div class="bg-brand-900/50 border border-brand-800 rounded-xl p-5">
+          <div class="text-xs font-medium uppercase tracking-wider text-brand-300 mb-2">03</div>
+          <div class="font-semibold mb-1">Khai giảng 15/06</div>
+          <div class="text-sm text-brand-100/70">Tới trung tâm lúc 8:00 sáng</div>
+        </div>
+      </div>
+      <a href="#" class="inline-flex items-center gap-2 bg-white text-brand-950 hover:bg-paper-tint font-medium text-base px-7 py-4 rounded-md transition-colors">
+        Đăng nhập trang học viên
+        <i class="ph-bold ph-arrow-right text-sm"></i>
+      </a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="bg-paper border-t border-line-soft py-10 mt-10">
+  <div class="max-w-[1100px] mx-auto px-5 md:px-8 text-sm text-ink-40 text-center">
+    © 2026 Trung tâm Lái xe Đông Á · 0903.456.789 · Đồng Xoài, Bình Phước
+  </div>
+</footer>
+
+</body>
+</html>
