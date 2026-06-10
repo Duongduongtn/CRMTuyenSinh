@@ -49,6 +49,12 @@ VEHICLE_CLASS_TO_GROUP: dict[str, str] = {
 }
 
 
+# NOTE: CourseSchedule (lịch khai giảng) đã bỏ ở Sprint 1 Tuần 2.
+# Scope CRM không quản lý lịch khai giảng — sale tư vấn trực tiếp qua hotline.
+# Nếu cần hiện "Mở lớp mỗi tuần" trên FE thì cấu hình trong Course.duration_display
+# hoặc thêm field text mới sau.
+
+
 class Course(models.Model):
     """Khóa học cho 1 hạng GPLX cụ thể."""
 
@@ -171,46 +177,3 @@ class Course(models.Model):
                 self.vehicle_class, VehicleGroup.UPGRADE
             )
         super().save(*args, **kwargs)
-
-
-class CourseSchedule(models.Model):
-    """Lịch khai giảng cho 1 khóa. 1 Course có thể có nhiều Schedule."""
-
-    course = models.ForeignKey(
-        Course,
-        on_delete=models.CASCADE,
-        related_name="schedules",
-        verbose_name=_("Khóa học"),
-    )
-    start_date = models.DateField(_("Ngày khai giảng"))
-    end_date = models.DateField(_("Ngày dự kiến thi"), null=True, blank=True)
-    instructor_name = models.CharField(
-        _("Huấn luyện viên chính"),
-        max_length=100,
-        blank=True,
-    )
-    max_students = models.PositiveIntegerField(_("Sĩ số tối đa"), default=30)
-    enrolled_count = models.PositiveIntegerField(_("Đã đăng ký"), default=0)
-    is_open = models.BooleanField(
-        _("Đang mở"),
-        default=True,
-        help_text=_("Tắt khi đã đầy slot hoặc đến giờ chốt."),
-    )
-    note = models.CharField(_("Ghi chú"), max_length=255, blank=True)
-
-    created_at = models.DateTimeField(_("Tạo lúc"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("Lịch khai giảng")
-        verbose_name_plural = _("Lịch khai giảng")
-        ordering = ["start_date"]
-        indexes = [
-            models.Index(fields=["course", "is_open", "start_date"]),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.course.title} · {self.start_date:%d/%m/%Y}"
-
-    @property
-    def remaining_slots(self) -> int:
-        return max(0, self.max_students - self.enrolled_count)

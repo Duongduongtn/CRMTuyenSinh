@@ -1,16 +1,8 @@
 """Admin khóa học."""
 from django.contrib import admin
-from django.utils.html import format_html
-from unfold.admin import ModelAdmin, TabularInline
+from unfold.admin import ModelAdmin
 
-from .models import Course, CourseSchedule
-
-
-class CourseScheduleInline(TabularInline):
-    model = CourseSchedule
-    extra = 0
-    fields = ("start_date", "instructor_name", "max_students", "enrolled_count", "is_open")
-    ordering = ("start_date",)
+from .models import Course
 
 
 @admin.register(Course)
@@ -28,7 +20,6 @@ class CourseAdmin(ModelAdmin):
     search_fields = ("title", "slug", "vehicle_class")
     list_editable = ("is_visible", "is_featured")
     prepopulated_fields = {"slug": ("title",)}
-    inlines = [CourseScheduleInline]
 
     fieldsets = (
         (
@@ -65,11 +56,3 @@ class CourseAdmin(ModelAdmin):
     def tuition_fee_display(self, obj: Course) -> str:
         # Format số kiểu VN: 17.500.000đ
         return f"{int(obj.tuition_fee):,}đ".replace(",", ".")
-
-
-@admin.register(CourseSchedule)
-class CourseScheduleAdmin(ModelAdmin):
-    list_display = ("course", "start_date", "instructor_name", "enrolled_count", "max_students", "is_open")
-    list_filter = ("is_open", "course")
-    search_fields = ("course__title", "instructor_name")
-    date_hierarchy = "start_date"
