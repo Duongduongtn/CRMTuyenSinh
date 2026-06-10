@@ -337,3 +337,72 @@ class OTPRequest(models.Model):
         self.status = self.Status.CONSUMED
         self.consumed_at = timezone.now()
         return True
+
+
+class StudentDeleteRequest(models.Model):
+    """Học viên gửi yêu cầu xóa dữ liệu theo NĐ 13/2023/NĐ-CP Điều 9.
+
+    KHÔNG tự xóa dữ liệu ở backend. Văn thư/admin sẽ xử lý thủ công trong CRM
+    (xem hồ sơ, đối chiếu công nợ, phê duyệt hoặc từ chối có lý do). Lý do:
+    HV còn nợ học phí, đang trong khóa học, hoặc hồ sơ đã nộp Sở GTVT thì cần
+    người ra quyết định, không thể auto-delete.
+    """
+
+    class Status(models.TextChoices):
+        RECEIVED = "received", _("Đã tiếp nhận")
+        IN_REVIEW = "in_review", _("Đang xử lý")
+        APPROVED = "approved", _("Đã chấp thuận")
+        REJECTED = "rejected", _("Từ chối")
+        COMPLETED = "completed", _("Đã xóa dữ liệu")
+
+    account = models.ForeignKey(
+        StudentAccount,
+        on_delete=models.CASCADE,
+        related_name="delete_requests",
+        verbose_name=_("Tài khoản học viên"),
+    )
+    reason = models.TextField(
+        _("Lý do yêu cầu"),
+        blank=True,
+        default="",
+        help_text=_("HV nhập tự do. KHÔNG bắt buộc theo NĐ 13/2023."),
+    )
+    status = models.CharField(
+        _("Trạng thái"),
+        max_length=20,
+        choices=Status.choices,
+        default=Status.RECEIVED,
+    )
+    handler_note = models.TextField(
+        _("Ghi chú xử lý"),
+        blank=True,
+        default="",
+        help_text=_("Nội bộ — lý do duyệt/từ chối, các bước đã thực hiện."),
+    )
+    ip_address = models.GenericIPAddressField(_("IP"), null=True, blank=True)
+    user_agent = models.CharField(_("User agent"), max_length=255, blank=True, default="")
+    telegram_sent_at = models.DateTimeField(_("Đã gửi Telegram lúc"), null=True, blank=True)
+    handled_at = models.DateTimeField(_("Xử lý xong lúc"), null=True, blank=True)
+    handled_by = models.ForeignKey(
+        "users.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handled_delete_requests",
+        verbose_name=_("Người xử lý"),
+    )
+
+    created_at = models.DateTimeField(_("Tạo lúc"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("Cập nhật"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("Yêu cầu xóa dữ liệu (NĐ 13/2023)")
+        verbose_name_plural = _("Yêu cầu xóa dữ liệu (NĐ 13/2023)")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["account", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Yêu cầu xóa #{self.pk} · {self.account.phone}"

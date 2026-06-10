@@ -15,8 +15,8 @@ from rest_framework.test import APIClient
 from apps.courses.models import Course, VehicleClass, VehicleGroup
 from apps.orders.models import Enrollment, EnrollmentStatus
 
-from .auth import issue_access_token
-from .models import OTPRequest, StudentAccount
+from .auth import issue_access_token, issue_quick_token
+from .models import OTPRequest, StudentAccount, StudentDeleteRequest
 
 
 def _make_course():
@@ -178,3 +178,108 @@ class IDOREnrollmentTests(TestCase):
     def test_unauthenticated_rejected(self):
         resp = self.client.get("/api/student/enrollments")
         self.assertEqual(resp.status_code, 401)
+
+
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, TELEGRAM_BOT_TOKEN="", TELEGRAM_CHAT_ID="")
+class DeleteRequestTests(TestCase):
+    """POST /api/student/me/delete-request — NĐ 13/2023 Điều 9.
+
+    - Tạo record + trả 201 lần đầu.
+    - Gọi lại trong khi đang xử lý → 200 + already_received (idempotent từ HV).
+    - Telegram task được enqueue (mock: TELEGRAM_BOT_TOKEN rỗng → task skip).
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.account = StudentAccount.objects.create(phone="0903000111", display_name="HV A")
+        token = issue_access_token(self.account.pk, self.account.phone)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    def test_creates_record_201(self):
+        resp = self.client.post(
+            "/api/student/me/delete-request",
+            {"reason": "Tôi đã hủy đăng ký"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        req = StudentDeleteRequest.objects.get()
+        self.assertEqual(req.account_id, self.account.pk)
+        self.assertEqual(req.reason, "Tôi đã hủy đăng ký")
+        self.assertEqual(req.status, StudentDeleteRequest.Status.RECEIVED)
+
+    def test_second_request_returns_already_received(self):
+        self.client.post("/api/student/me/delete-request", {}, format="json")
+        resp = self.client.post(
+            "/api/student/me/delete-request", {"reason": "lần 2"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["code"], "already_received")
+        # Vẫn chỉ có 1 record (không tạo trùng)
+        self.assertEqual(StudentDeleteRequest.objects.filter(account=self.account).count(), 1)
+
+    def test_unauthenticated_rejected(self):
+        self.client.credentials()  # clear auth
+        resp = self.client.post("/api/student/me/delete-request", {}, format="json")
+        self.assertEqual(resp.status_code, 401)
+
+
+class QuickViewTests(TestCase):
+    """GET /api/student/quick/<token> — link Zalo ZNS 24h scope 1 enrollment."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.enr_a = _make_enrollment("0903111111", "ORD-QV0001")
+        self.enr_b = _make_enrollment("0903222222", "ORD-QV0002")
+        self.account_a = StudentAccount.objects.get(phone="0903111111")
+
+    def test_returns_enrollment_with_valid_quick_token(self):
+        token = issue_quick_token(self.account_a.pk, self.account_a.phone, self.enr_a.pk)
+        resp = self.client.get(f"/api/student/quick/{token}")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body["scope"], "quick_view_read_only")
+        self.assertEqual(body["enrollment"]["code"], "ORD-QV0001")
+        # PII mask: phone phải có ***
+        self.assertIn("***", body["enrollment"]["student_phone_masked"])
+        # Không trả lead_id, deposit_link_token, student_email
+        self.assertNotIn("deposit_link_token", body["enrollment"])
+        self.assertNotIn("student_email", body["enrollment"])
+
+    def test_access_token_rejected_as_quick(self):
+        # Dùng access token thay quick → 401 vì type không khớp
+        token = issue_access_token(self.account_a.pk, self.account_a.phone)
+        resp = self.client.get(f"/api/student/quick/{token}")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_cross_account_scope_returns_410(self):
+        # Token chỉ enrollment B nhưng account A → 410 (IDOR-safe)
+        token = issue_quick_token(self.account_a.pk, self.account_a.phone, self.enr_b.pk)
+        resp = self.client.get(f"/api/student/quick/{token}")
+        self.assertEqual(resp.status_code, 410)
+
+    def test_tampered_quick_token_rejected(self):
+        token = issue_quick_token(self.account_a.pk, self.account_a.phone, self.enr_a.pk)
+        parts = token.split(".")
+        tampered = parts[0] + "." + parts[1][:-1] + ("A" if parts[1][-1] != "A" else "B")
+        resp = self.client.get(f"/api/student/quick/{tampered}")
+        self.assertEqual(resp.status_code, 401)
+
+    def test_quick_view_does_not_grant_other_endpoints(self):
+        # Quick token KHÔNG được dùng để gọi /me hay /enrollments
+        token = issue_quick_token(self.account_a.pk, self.account_a.phone, self.enr_a.pk)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        resp_me = self.client.get("/api/student/me")
+        self.assertEqual(resp_me.status_code, 401)
+        resp_list = self.client.get("/api/student/enrollments")
+        self.assertEqual(resp_list.status_code, 401)
+
+    def test_quick_view_410_for_cancelled_enrollment(self):
+        # Văn thư hủy đơn → link quick không phục vụ nữa
+        from apps.orders.models import EnrollmentStatus
+
+        self.enr_a.status = EnrollmentStatus.CANCELLED
+        self.enr_a.save(update_fields=["status", "updated_at"])
+        token = issue_quick_token(self.account_a.pk, self.account_a.phone, self.enr_a.pk)
+        resp = self.client.get(f"/api/student/quick/{token}")
+        self.assertEqual(resp.status_code, 410)
+        self.assertEqual(resp.json()["code"], "enrollment_inactive")

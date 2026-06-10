@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.students",
     "apps.documents",
     "apps.blog",
+    "apps.marketing",
 ]
 
 MIDDLEWARE = [
@@ -158,6 +159,7 @@ REST_FRAMEWORK = {
         "otp_request": "5/hour",     # 5 OTP/giờ/SĐT
         "otp_verify": "30/hour",     # 30 lần verify/giờ/IP chống brute-force
         "otp_verify_phone": "10/hour",  # 10 lần verify/giờ/SĐT — chặn botnet đổi IP
+        "delete_request": "5/hour",  # 5 yêu cầu xóa dữ liệu/giờ/account
     },
 }
 
@@ -263,3 +265,9 @@ ZNS_ACCESS_TOKEN = env.str("ZNS_ACCESS_TOKEN", default="")
 ZNS_REFRESH_TOKEN = env.str("ZNS_REFRESH_TOKEN", default="")
 ZNS_TEMPLATE_ID_OTP = env.str("ZNS_TEMPLATE_ID_OTP", default="")
 ZNS_TEMPLATE_ID_DEPOSIT = env.str("ZNS_TEMPLATE_ID_DEPOSIT", default="")
+
+# Facebook Lead Ads webhook
+FB_APP_SECRET = env.str("FB_APP_SECRET", default="")
+FB_LEAD_VERIFY_TOKEN = env.str("FB_LEAD_VERIFY_TOKEN", default="")
+# Dev-only: bỏ qua signature verify khi chưa có FB_APP_SECRET. KHÔNG bật ở prod.
+FB_ALLOW_INSECURE_DEV = env.bool("FB_ALLOW_INSECURE_DEV", default=False)

@@ -14,6 +14,10 @@ django-unfold==0.42.0
 django-solo==2.4.0          # SiteSettings singleton
 Pillow==10.4.0              # ImageField
 
+# PDF (đơn đăng ký Sở GTVT). Trên Windows cần GTK runtime — nếu chưa có endpoint
+# fallback HTML preview vẫn hoạt động (xem apps/orders/pdf.py).
+weasyprint==62.3
+
 # Async + queue
 celery==5.4.0
 redis==5.2.0

@@ -4,6 +4,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.marketing.urls import webhook_urlpatterns as marketing_webhooks
 from apps.payments.urls import webhook_urlpatterns as payments_webhooks
 
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("api/", include("apps.blog.urls")),
     # Webhook server-to-server (root path, KHÔNG nằm trong /api/)
     *payments_webhooks,
+    *marketing_webhooks,
 ]
 
 if settings.DEBUG:

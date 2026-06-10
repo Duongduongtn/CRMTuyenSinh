@@ -7,7 +7,13 @@ from django.contrib import admin
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin, TabularInline
 
-from .models import AccountPersonLink, OTPRequest, Person, StudentAccount
+from .models import (
+    AccountPersonLink,
+    OTPRequest,
+    Person,
+    StudentAccount,
+    StudentDeleteRequest,
+)
 
 
 class AccountPersonLinkInline(TabularInline):
@@ -105,3 +111,74 @@ class OTPRequestAdmin(ModelAdmin):
     def get_fields(self, request, obj=None):
         # Loại bỏ code_hash khỏi UI hoàn toàn.
         return [f for f in self.readonly_fields if f != "code_hash"]
+
+
+@admin.register(StudentDeleteRequest)
+class StudentDeleteRequestAdmin(ModelAdmin):
+    """Quản lý yêu cầu xóa dữ liệu HV (NĐ 13/2023).
+
+    Văn thư + admin xử lý: đọc lý do, đối soát công nợ trong CRM, rồi quyết
+    định ``approved`` (sẽ xóa thủ công) hoặc ``rejected`` (kèm lý do, gọi HV
+    giải thích). KHÔNG có nút "xóa tự động" — thao tác xóa phải do người thực
+    hiện để tránh mất dữ liệu nhầm.
+    """
+
+    list_display = ("created_at", "account", "status_badge", "handled_by", "telegram_sent_at")
+    list_filter = ("status",)
+    search_fields = ("account__phone", "reason")
+    date_hierarchy = "created_at"
+    autocomplete_fields = ("account", "handled_by")
+    readonly_fields = (
+        "account",
+        "reason",
+        "ip_address",
+        "user_agent",
+        "telegram_sent_at",
+        "created_at",
+        "updated_at",
+    )
+    fieldsets = (
+        ("Yêu cầu của học viên", {"fields": ("account", "reason", "created_at")}),
+        (
+            "Xử lý",
+            {
+                "fields": (
+                    "status",
+                    "handler_note",
+                    "handled_by",
+                    "handled_at",
+                )
+            },
+        ),
+        (
+            "Audit",
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    "ip_address",
+                    "user_agent",
+                    "telegram_sent_at",
+                    "updated_at",
+                ),
+            },
+        ),
+    )
+
+    def has_add_permission(self, request) -> bool:
+        return False  # Chỉ tạo qua API HV
+
+    @admin.display(description="Trạng thái", ordering="status")
+    def status_badge(self, obj: StudentDeleteRequest) -> str:
+        colors = {
+            StudentDeleteRequest.Status.RECEIVED: "#F59E0B",
+            StudentDeleteRequest.Status.IN_REVIEW: "#0EA5E9",
+            StudentDeleteRequest.Status.APPROVED: "#15803D",
+            StudentDeleteRequest.Status.REJECTED: "#B91C1C",
+            StudentDeleteRequest.Status.COMPLETED: "#7C3AED",
+        }
+        return format_html(
+            '<span style="background:{};color:#fff;padding:2px 8px;'
+            'border-radius:4px;font-size:11px;font-weight:600;">{}</span>',
+            colors.get(obj.status, "#000"),
+            obj.get_status_display(),
+        )

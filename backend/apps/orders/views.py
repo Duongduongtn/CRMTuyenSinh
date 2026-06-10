@@ -3,7 +3,10 @@
 - `LeadConvertView`: POST /api/admin/leads/{id}/convert (auth required, sale/admin).
 - `EnrollmentViewSet`: CRUD đơn cho admin/kế toán/sale.
 - `EnrollmentPublicView`: GET /api/public/enrollments/{code} cho FE trang đặt cọc.
+- `EnrollmentPDFView`: GET /api/admin/enrollments/{id}/pdf — văn thư/admin in PDF.
 """
+from django.db import transaction
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -12,7 +15,10 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from apps.core.models import AuditLog
+
 from .models import Enrollment
+from .pdf import PDFRenderError, render_enrollment_html, render_enrollment_pdf
 from .serializers import (
     EnrollmentConvertInputSerializer,
     EnrollmentDetailSerializer,
@@ -174,6 +180,102 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         return Response(
             EnrollmentDetailSerializer(enrollment, context={"request": request}).data
         )
+
+
+class EnrollmentPDFView(APIView):
+    """GET /api/admin/enrollments/{id}/pdf — văn thư/admin in PDF đơn đăng ký.
+
+    Query ``?as=html`` → trả HTML preview (cho dev, khi WeasyPrint chưa cài).
+    KHÔNG dùng tham số ``?format=`` vì DRF nó dành cho content negotiation.
+    Mặc định trả PDF với header ``Content-Disposition: attachment``.
+
+    Quyền:
+    - superuser, group ``admin``, ``clerk`` (văn thư), ``accountant`` → cho phép.
+    - Group ``sale`` → cho phép nếu là người tạo đơn.
+    - Học viên PWA → KHÔNG dùng endpoint này (FE student xem qua /api/student/...).
+
+    Audit log mọi lần in (view_sensitive) để truy vết khi tài liệu lộ ra ngoài.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk: int):
+        # `select_for_update` để chốt snapshot paid_amount nhất quán với webhook Casso
+        # đang chạy song song (xem payment-integration-reviewer P1.1).
+        with transaction.atomic():
+            enrollment: Enrollment = get_object_or_404(
+                Enrollment.objects.select_for_update().select_related("course"),
+                pk=pk,
+            )
+            if not self._can_print(request.user, enrollment):
+                return Response(
+                    {"detail": "Bạn không có quyền in PDF đơn này."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            fmt = (request.query_params.get("as") or "pdf").lower()
+            # Ghi audit log trước khi render (kể cả khi render fail) — phục vụ điều tra.
+            AuditLog.objects.create(
+                user=request.user,
+                action=AuditLog.Action.VIEW_SENSITIVE,
+                target_model="orders.Enrollment",
+                target_id=str(enrollment.pk),
+                changes={"as": fmt, "action": "print_pdf"},
+                ip_address=self._client_ip(request),
+                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+            )
+
+            if fmt == "html":
+                resp = HttpResponse(
+                    render_enrollment_html(enrollment),
+                    content_type="text/html; charset=utf-8",
+                )
+                self._apply_sensitive_headers(resp)
+                return resp
+
+            try:
+                pdf_bytes = render_enrollment_pdf(enrollment)
+            except PDFRenderError as exc:
+                return Response(
+                    {
+                        "detail": str(exc),
+                        "code": "pdf_unavailable",
+                        "hint": "Thử lại với ?as=html để xem bản preview.",
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+            resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+            filename = f"don-dang-ky-{enrollment.code}.pdf"
+            resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+            self._apply_sensitive_headers(resp)
+            return resp
+
+    @staticmethod
+    def _apply_sensitive_headers(resp: HttpResponse) -> None:
+        """Cache-Control + X-Content-Type-Options cho file chứa CCCD (NĐ 13/2023)."""
+        resp["Cache-Control"] = "private, no-store, no-cache, must-revalidate"
+        resp["Pragma"] = "no-cache"
+        resp["X-Content-Type-Options"] = "nosniff"
+        resp["Referrer-Policy"] = "no-referrer"
+
+    @staticmethod
+    def _can_print(user, enrollment: Enrollment) -> bool:
+        if user.is_superuser:
+            return True
+        groups = set(user.groups.values_list("name", flat=True))
+        if groups & {"admin", "clerk", "accountant"}:
+            return True
+        if "sale" in groups and enrollment.created_by_id == user.id:
+            return True
+        return False
+
+    @staticmethod
+    def _client_ip(request) -> str | None:
+        xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        if xff:
+            return xff.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR")
 
 
 class DepositLinkThrottle(AnonRateThrottle):

@@ -57,3 +57,23 @@ class OTPVerifyPhoneThrottle(SimpleRateThrottle):
             return None
         digest = hashlib.sha1(phone.encode("utf-8")).hexdigest()[:16]
         return f"throttle_otp_verify_phone_{digest}"
+
+
+class DeleteRequestThrottle(SimpleRateThrottle):
+    """Chống spam yêu cầu xóa dữ liệu (NĐ 13/2023) — 5 lần/giờ/account.
+
+    Idempotent check trong view đã trả 200 cho lần thứ 2, nhưng vẫn cần throttle
+    để chống attacker với JWT hợp lệ spam request làm tăng audit log.
+    """
+
+    scope = "delete_request"
+    rate = "5/hour"
+
+    def get_cache_key(self, request, view):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return None
+        account_id = getattr(user, "account_id", None) or getattr(user, "pk", None)
+        if not account_id:
+            return None
+        return f"throttle_delete_request_{account_id}"

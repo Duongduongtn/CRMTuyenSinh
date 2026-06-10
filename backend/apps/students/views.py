@@ -19,6 +19,7 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.models import AuditLog
 from apps.orders.models import Enrollment
 from .auth import (
     TokenError,
@@ -32,16 +33,25 @@ from .models import (
     OTPRequest,
     Person,
     StudentAccount,
+    StudentDeleteRequest,
 )
 from .serializers import (
+    DeleteRequestSerializer,
     EnrollmentDashboardSerializer,
     OTPRequestSerializer,
     OTPVerifySerializer,
     PersonUpdateSerializer,
+    QuickEnrollmentSerializer,
     RefreshSerializer,
     StudentMeSerializer,
 )
-from .throttles import OTPRequestThrottle, OTPVerifyPhoneThrottle, OTPVerifyThrottle
+from .tasks import send_delete_request_telegram
+from .throttles import (
+    DeleteRequestThrottle,
+    OTPRequestThrottle,
+    OTPVerifyPhoneThrottle,
+    OTPVerifyThrottle,
+)
 from .zns_adapter import ZNSError, send_otp
 
 
@@ -217,6 +227,182 @@ class EnrollmentDetailView(StudentAuthMixin, generics.RetrieveAPIView):
     def get_queryset(self):
         phone = self.request.user.phone
         return Enrollment.objects.filter(student_phone=phone).select_related("course")
+
+
+class QuickEnrollmentView(APIView):
+    """GET /api/student/quick/<token> — quick view 24h từ link Zalo ZNS.
+
+    Theo memory [[student-auth-flow]]:
+    - Token type = ``quick``, TTL 24h, scope cứng ``enrollment`` ID.
+    - Trả chi tiết đúng enrollment trong scope. KHÔNG list, KHÔNG /me, KHÔNG
+      /persons.
+    - Read-only — không có PATCH/POST kể cả khi có token hợp lệ.
+    - KHÔNG cần Authorization header — token đã ở URL.
+
+    IDOR check: account.phone trong token PHẢI khớp enrollment.student_phone.
+    Token hợp lệ nhưng enrollment đã đổi SĐT (văn thư thao tác) → 410 Gone.
+    """
+
+    authentication_classes: list = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token: str):
+        try:
+            payload = decode_token(token, expected_type="quick")
+        except TokenError as exc:
+            return Response(
+                {"detail": str(exc), "code": "invalid_token"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        enrollment_id = payload.get("enrollment")
+        if not enrollment_id:
+            return Response(
+                {"detail": "Token thiếu scope đơn.", "code": "missing_scope"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            account = StudentAccount.objects.get(pk=payload["sub"], is_active=True)
+        except StudentAccount.DoesNotExist:
+            return Response(
+                {"detail": "Tài khoản đã bị khóa.", "code": "account_disabled"},
+                status=status.HTTP_410_GONE,
+            )
+
+        enrollment = (
+            Enrollment.objects
+            .filter(pk=enrollment_id, student_phone=account.phone)
+            .select_related("course")
+            .first()
+        )
+        if not enrollment:
+            # Token hợp lệ nhưng đơn không còn match → IDOR-safe trả 410.
+            return Response(
+                {
+                    "detail": "Liên kết không còn dùng được. Vui lòng đăng nhập lại bằng SĐT.",
+                    "code": "enrollment_unavailable",
+                },
+                status=status.HTTP_410_GONE,
+            )
+        # Đơn đã hủy/hoàn → không serve qua quick link nữa.
+        from apps.orders.models import EnrollmentStatus
+
+        if enrollment.status in (EnrollmentStatus.CANCELLED, EnrollmentStatus.REFUNDED):
+            return Response(
+                {
+                    "detail": "Đơn này đã hủy. Vui lòng liên hệ trung tâm.",
+                    "code": "enrollment_inactive",
+                },
+                status=status.HTTP_410_GONE,
+            )
+
+        # Audit log xem dữ liệu nhạy cảm (quick token có thể forward).
+        masked_phone = (
+            account.phone[:3] + "****" + account.phone[-3:]
+            if len(account.phone) >= 7
+            else "***"
+        )
+        AuditLog.objects.create(
+            user=None,
+            action=AuditLog.Action.VIEW_SENSITIVE,
+            target_model="orders.Enrollment",
+            target_id=str(enrollment.pk),
+            changes={
+                "via": "quick_token",
+                "phone_masked": masked_phone,
+                "jti": payload.get("jti", ""),
+            },
+            ip_address=_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+        )
+
+        return Response({
+            "scope": "quick_view_read_only",
+            "expires_at": payload.get("exp"),
+            "enrollment": QuickEnrollmentSerializer(enrollment).data,
+        })
+
+
+class DeleteRequestView(StudentAuthMixin, APIView):
+    """POST /api/student/me/delete-request — HV yêu cầu xóa dữ liệu (NĐ 13/2023).
+
+    KHÔNG xóa dữ liệu ngay. Tạo record ``StudentDeleteRequest`` (status=received)
+    và bắn Telegram cho admin xử lý thủ công vì phải đối soát công nợ + hồ sơ
+    đã nộp Sở GTVT. Theo điều 9 NĐ 13/2023, đơn vị có 72 giờ để phản hồi.
+
+    Anti-spam: 1 account chỉ được tạo 1 yêu cầu ``received``/``in_review`` đang
+    chờ tại 1 thời điểm. Gọi lại trả về record cũ (idempotent từ góc HV).
+    Throttle 5 lần/giờ/account để chặn audit log spam có chủ ý.
+    """
+
+    throttle_classes = [DeleteRequestThrottle]
+
+    def post(self, request):
+        ser = DeleteRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        reason = ser.validated_data.get("reason", "")
+
+        account = request.user.account
+        existing = StudentDeleteRequest.objects.filter(
+            account=account,
+            status__in=[
+                StudentDeleteRequest.Status.RECEIVED,
+                StudentDeleteRequest.Status.IN_REVIEW,
+            ],
+        ).order_by("-created_at").first()
+        if existing:
+            return Response(
+                {
+                    "detail": (
+                        "Yêu cầu xóa dữ liệu đã được tiếp nhận. Trung tâm sẽ "
+                        "phản hồi qua Zalo trong vòng 72 giờ."
+                    ),
+                    "request_id": existing.id,
+                    "status": existing.status,
+                    "created_at": existing.created_at,
+                    "code": "already_received",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        req = StudentDeleteRequest.objects.create(
+            account=account,
+            reason=reason,
+            ip_address=_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+        )
+        AuditLog.objects.create(
+            user=None,
+            action=AuditLog.Action.CREATE,
+            target_model="students.StudentDeleteRequest",
+            target_id=str(req.pk),
+            changes={"phone": account.phone, "via": "pwa"},
+            ip_address=_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+        )
+
+        try:
+            send_delete_request_telegram.delay(req.id)
+        except Exception:  # noqa: BLE001 — broker chưa sẵn ở dev không được làm vỡ flow
+            import logging
+
+            logging.getLogger("apps.students").exception(
+                "Không enqueue được Telegram task — đã tạo request %s", req.id
+            )
+
+        return Response(
+            {
+                "detail": (
+                    "Đã tiếp nhận yêu cầu xóa dữ liệu. Trung tâm sẽ phản hồi "
+                    "trong vòng 72 giờ theo Nghị định 13/2023/NĐ-CP."
+                ),
+                "request_id": req.id,
+                "status": req.status,
+                "created_at": req.created_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class PersonUpdateView(StudentAuthMixin, generics.UpdateAPIView):
