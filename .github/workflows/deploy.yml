@@ -209,8 +209,10 @@ jobs:
       - name: Smoke test HTTPS
         run: |
           # Check BE health (chap nhan 200/401/403 - tat ca deu chung to BE alive).
+          # URL pattern apps/core/urls.py la "site-settings" KHONG trailing slash.
+          # Django KHONG auto-strip slash (APPEND_SLASH chi append, khong strip).
           BE_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
-            https://sale.trungtamthanhdat.com/api/site-settings/)
+            https://sale.trungtamthanhdat.com/api/site-settings)
           echo "BE site-settings: $BE_CODE"
           case "$BE_CODE" in
             200|401|403) echo "BE OK";;
