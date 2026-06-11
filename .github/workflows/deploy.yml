@@ -467,40 +467,11 @@ jobs:
               --agree-tos --no-eff-email --non-interactive
           fi
 
-          # 3. Swap sang vhost full SSL.
+          # 3. Swap sang vhost full SSL (idempotent qua ln -sf).
           rm -f "$VHOST_BOOTSTRAP"
           ln -sf /var/www/thanhdat/infra/nginx/trungtamthanhdat.com.conf "$VHOST_FULL"
           nginx -t && systemctl reload nginx
           echo "Bootstrap SSL apex hoan tat."
-
-          # 4. DEBUG: dump nginx config thuc te de phat hien vhost project khac
-          # (vntmedia/cemacosg/...) co the dang claim server_name trungtamthanhdat.com
-          # hoac default_server SSL 443.
-          echo ""
-          echo "=== DEBUG: All server blocks match trungtamthanhdat ==="
-          nginx -T 2>/dev/null | awk '
-            /^[[:space:]]*server[[:space:]]*\{/ { inserver=1; buf=""; matched=0 }
-            inserver {
-              buf=buf $0 "\n"
-              if (/server_name.*trungtamthanhdat/ || /server_name[[:space:]]+_[;[:space:]]/) matched=1
-            }
-            /^[[:space:]]*\}[[:space:]]*$/ && inserver {
-              if (matched) print buf "----"
-              inserver=0
-            }
-          '
-
-          echo ""
-          echo "=== DEBUG: default_server o port 443 ==="
-          nginx -T 2>/dev/null | grep -B 5 'default_server' | grep -E 'listen.*443.*default_server|server_name' | head -20
-
-          echo ""
-          echo "=== DEBUG: sites-enabled symlinks ==="
-          ls -la /etc/nginx/sites-enabled/ | grep -iE 'trungtam|vntmedia|cemacosg|default'
-
-          echo ""
-          echo "=== DEBUG: cert SAN cho apex ==="
-          openssl x509 -in /etc/letsencrypt/live/trungtamthanhdat.com/fullchain.pem -noout -subject -ext subjectAltName 2>&1 || true
           EOF
 
       - name: Restart FE Public SSR service (reload Node process voi code moi)
