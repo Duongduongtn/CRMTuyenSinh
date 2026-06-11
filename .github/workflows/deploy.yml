@@ -366,7 +366,8 @@ jobs:
             exit 0
           fi
 
-          mkdir -p /var/www/certbot
+          mkdir -p /var/www/certbot/.well-known/acme-challenge
+          chmod -R a+rX /var/www/certbot
 
           # 1. Bootstrap vhost HTTP-only de pass ACME challenge.
           if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
@@ -375,12 +376,89 @@ jobs:
               listen 80;
               listen [::]:80;
               server_name trungtamthanhdat.com www.trungtamthanhdat.com;
-              location /.well-known/acme-challenge/ { root /var/www/certbot; }
+              location /.well-known/acme-challenge/ {
+                  root /var/www/certbot;
+                  default_type "text/plain";
+                  allow all;
+              }
               location / { return 404; }
           }
           NGINX
             ln -sf /etc/nginx/sites-available/trungtamthanhdat.com.bootstrap "$VHOST_BOOTSTRAP"
             nginx -t && systemctl reload nginx
+
+            # 1b. SELF-TEST ACME challenge truoc khi goi certbot (tranh rate limit Let's Encrypt).
+            # Drop 1 file test, curl qua IPv4 va IPv6 local interface voi Host header apex.
+            # Neu ca 2 deu fail -> dump config + sites-enabled + nginx -T grep, exit fail
+            # ngay thay vi de certbot consume 1 lan rate limit.
+            TEST_TOKEN="self-test-$(date +%s)-$$"
+            echo -n "$TEST_TOKEN" > "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN"
+            chmod a+r "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN"
+            sync
+
+            # `--resolve` ep curl ket noi den 127.0.0.1 hoac ::1 voi Host: trungtamthanhdat.com.
+            # CHU Y cu phap IPv6: KHONG dung brackets `[::1]` vi curl < 7.77 (Ubuntu 20.04
+            # default 7.68) reject. Dung 3 dau `:` lien sau port: `host:port:::1`. Ubuntu
+            # 22.04 (curl 7.81) accept ca 2.
+            IPV4_RESP=$(curl -sS --max-time 5 \
+              --resolve "trungtamthanhdat.com:80:127.0.0.1" \
+              "http://trungtamthanhdat.com/.well-known/acme-challenge/$TEST_TOKEN" 2>&1 || echo "<curl-error>")
+            IPV6_RESP=$(curl -sS --max-time 5 \
+              --resolve "trungtamthanhdat.com:80:::1" \
+              "http://trungtamthanhdat.com/.well-known/acme-challenge/$TEST_TOKEN" 2>&1 || echo "<curl-error>")
+
+            echo "=== Self-test ACME challenge ==="
+            echo "Expected token: $TEST_TOKEN"
+            echo "IPv4 (127.0.0.1) response: '$IPV4_RESP'"
+            echo "IPv6 (::1) response: '$IPV6_RESP'"
+
+            IPV4_OK=0; IPV6_OK=0
+            [ "$IPV4_RESP" = "$TEST_TOKEN" ] && IPV4_OK=1
+            [ "$IPV6_RESP" = "$TEST_TOKEN" ] && IPV6_OK=1
+
+            if [ "$IPV4_OK" = "0" ] && [ "$IPV6_OK" = "0" ]; then
+              echo "=== FAIL: Vhost bootstrap khong serve duoc ACME challenge tu localhost ==="
+              echo "--- Bootstrap vhost config:"
+              cat /etc/nginx/sites-available/trungtamthanhdat.com.bootstrap
+              echo "--- sites-enabled (filter trungtam):"
+              ls -la /etc/nginx/sites-enabled/ | grep -i trungtam || echo "(khong co)"
+              echo "--- nginx -T grep apex (10 dong context):"
+              nginx -T 2>/dev/null | grep -B 2 -A 10 'server_name trungtamthanhdat\.com' || echo "(khong tim thay)"
+              echo "--- nginx default_server count + listen:"
+              nginx -T 2>/dev/null | grep -E 'listen.*default_server' | head -10 || echo "(khong co default_server)"
+              echo "--- ss -tlnp port 80:"
+              ss -tlnp 2>/dev/null | grep ':80 ' || echo "(khong thay port 80)"
+              echo "--- file test path:"
+              ls -la "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN" 2>&1 || true
+              echo "--- /var/www permission chain:"
+              namei -m "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN" 2>&1 || true
+              rm -f "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN"
+              exit 1
+            fi
+
+            if [ "$IPV6_OK" = "0" ]; then
+              echo "=== WARNING: IPv4 serve OK nhung IPv6 fail ==="
+              echo "Let's Encrypt UU TIEN IPv6 khi DNS co AAAA record."
+              echo "Neu apex co AAAA record (dig AAAA trungtamthanhdat.com tra ket qua) thi"
+              echo "certbot SE FAIL vi ACME server hit IPv6 endpoint khong serve duoc."
+              echo "--- DNS AAAA hien tai (tu VPS):"
+              dig +short AAAA trungtamthanhdat.com 2>&1 | head -3 || echo "(khong dig duoc)"
+              echo "--- VPS IPv6 interface global:"
+              ip -6 addr show scope global 2>&1 | grep -E 'inet6|^[0-9]+:' | head -10 || true
+              echo "--- ss -tlnp port 80:"
+              ss -tlnp 2>/dev/null | grep ':80 ' || echo "(khong thay port 80)"
+              echo "--- ip6tables INPUT chain (port 80 rule):"
+              ip6tables -L INPUT -n 2>/dev/null | grep -E '80|tcp|policy' | head -10 || \
+                nft list ruleset 2>/dev/null | grep -B 1 -A 3 'tcp dport 80' | head -15 || \
+                echo "(khong xem duoc firewall)"
+              echo "--- nginx vhost catch-all IPv6:"
+              nginx -T 2>/dev/null | grep -E 'listen.*\[::\].*default_server' | head -5 || \
+                echo "(khong co default_server IPv6)"
+              echo ""
+              echo "DUNG van tiep tuc certbot vi co the certbot dung HTTP-01 IPv4."
+            fi
+            echo "OK self-test pass (IPv4=$IPV4_OK, IPv6=$IPV6_OK)."
+            rm -f "/var/www/certbot/.well-known/acme-challenge/$TEST_TOKEN"
 
             # 2. Cap cert Let's Encrypt cho apex + www (1 cert).
             certbot certonly --webroot -w /var/www/certbot \
