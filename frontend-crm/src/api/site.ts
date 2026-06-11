@@ -1,6 +1,6 @@
 import { api } from './client'
 
-/** Khớp serializer apps/core/serializers.py — SiteSettingsPublicSerializer. */
+/** Khớp serializer apps/core/serializers.py (SiteSettingsPublicSerializer). */
 export interface SiteSettings {
   brand_name: string
   brand_short_name: string
@@ -26,6 +26,7 @@ export interface SiteSettings {
   license_info: string
   meta_title_default: string
   meta_description_default: string
+  student_url: string
 }
 
 export async function fetchSiteSettings(): Promise<SiteSettings> {

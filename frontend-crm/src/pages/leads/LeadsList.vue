@@ -13,7 +13,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LeadContactModal from '@/components/LeadContactModal.vue'
 import { fetchLeads } from '@/api/leads'
-import { formatDate, formatPhone, timeAgo } from '@/lib/format'
+import { formatDate, formatNumber, formatPhone, timeAgo, NO_VALUE } from '@/lib/format'
 
 const router = useRouter()
 
@@ -88,8 +88,8 @@ function goDetail(id: number) {
 }
 
 function vehicleClassLabel(code: string): string {
-  if (!code) return '—'
-  // Hiển thị mã hạng raw (B-MT, A1, C…) — không Việt hoá ngắn
+  if (!code) return NO_VALUE
+  // Hiển thị mã hạng raw (B-MT, A1, C…) không Việt hoá ngắn
   return code
 }
 </script>
@@ -102,7 +102,7 @@ function vehicleClassLabel(code: string): string {
         <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Pipeline</p>
         <h2 class="text-3xl font-semibold tracking-tighter text-ink mt-1">Khách tiềm năng</h2>
         <p class="text-[13px] text-ink-60 mt-1">
-          {{ data?.count ?? '—' }} lead trong hệ thống. Lọc theo trạng thái để theo dõi pipeline.
+          {{ formatNumber(data?.count ?? null) }} lead trong hệ thống. Lọc theo trạng thái để theo dõi pipeline.
         </p>
       </div>
       <Button variant="primary" size="md" disabled>
@@ -142,15 +142,15 @@ function vehicleClassLabel(code: string): string {
         <table class="w-full text-[13.5px]">
           <thead class="bg-paper-alt/70 text-[11px] uppercase tracking-wider text-ink-60 font-semibold">
             <tr>
-              <th class="px-6 py-3 text-left">Khách hàng</th>
-              <th class="px-3 py-3 text-left">Liên hệ</th>
-              <th class="px-3 py-3 text-left">Hạng</th>
-              <th class="px-3 py-3 text-left">Trạng thái</th>
-              <th class="px-3 py-3 text-left">Độ nóng</th>
-              <th class="px-3 py-3 text-left">Phụ trách</th>
-              <th class="px-3 py-3 text-left">Liên hệ gần nhất</th>
-              <th class="px-3 py-3 text-left">Hẹn lại</th>
-              <th class="px-3 py-3 text-right pr-6"></th>
+              <th scope="col" class="px-6 py-3 text-left">Khách hàng</th>
+              <th scope="col" class="px-3 py-3 text-left">Liên hệ</th>
+              <th scope="col" class="px-3 py-3 text-left">Hạng</th>
+              <th scope="col" class="px-3 py-3 text-left">Trạng thái</th>
+              <th scope="col" class="px-3 py-3 text-left">Độ nóng</th>
+              <th scope="col" class="px-3 py-3 text-left">Phụ trách</th>
+              <th scope="col" class="px-3 py-3 text-left">Liên hệ gần nhất</th>
+              <th scope="col" class="px-3 py-3 text-left">Hẹn lại</th>
+              <th scope="col" class="px-3 py-3 text-right pr-6"><span class="sr-only">Hành động</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line-soft">
@@ -176,7 +176,7 @@ function vehicleClassLabel(code: string): string {
               <td class="px-3 py-3.5"><StatusBadge :status="lead.status" kind="lead" /></td>
               <td class="px-3 py-3.5">
                 <StatusBadge v-if="lead.priority" :status="lead.priority" kind="priority" />
-                <span v-else class="text-ink-40">—</span>
+                <span v-else class="text-ink-40">{{ NO_VALUE }}</span>
               </td>
               <td class="px-3 py-3.5 text-ink-60">{{ lead.assigned_to_name || 'Chưa phân' }}</td>
               <td class="px-3 py-3.5 text-ink-60">{{ timeAgo(lead.last_contact_at) }}</td>
@@ -210,11 +210,11 @@ function vehicleClassLabel(code: string): string {
         </div>
       </div>
 
-      <div
+      <p
         v-if="isFetching && !isLoading"
-        class="absolute right-4 top-4 text-ink-40"
-        aria-hidden="true"
-      />
+        class="sr-only"
+        aria-live="polite"
+      >Đang tải lại danh sách lead…</p>
     </Card>
 
     <LeadContactModal

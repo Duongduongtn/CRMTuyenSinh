@@ -31,7 +31,7 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 const queryClient = useQueryClient()
 
 const lead = useQuery({
-  queryKey: ['lead', () => props.leadId],
+  queryKey: ['lead', computed(() => props.leadId)],
   queryFn: () => fetchLead(props.leadId as number),
   enabled: computed(() => props.open && props.leadId !== null),
 })
@@ -264,7 +264,7 @@ const reasonOptions = computed(() =>
           v-bind="priorityAfterAttrs"
           label="Độ nóng"
           :options="priorityOptions"
-          placeholder="—"
+          placeholder="–"
           :error="errors.priority_after"
         />
 
@@ -275,7 +275,7 @@ const reasonOptions = computed(() =>
           v-bind="reasonAttrs"
           label="Lý do (chọn nhanh)"
           :options="reasonOptions"
-          placeholder="— Chọn lý do —"
+          placeholder="Chọn lý do"
           :error="errors.reason"
           :hint="reasonOptions.length === 0 ? 'Chưa có lý do cấu hình cho trạng thái này.' : ''"
         />

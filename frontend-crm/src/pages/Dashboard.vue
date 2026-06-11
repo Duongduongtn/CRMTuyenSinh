@@ -17,7 +17,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import { fetchLeads } from '@/api/leads'
 import { fetchEnrollments } from '@/api/orders'
 import { fetchPayments } from '@/api/payments'
-import { formatVND, timeAgo, formatPhone } from '@/lib/format'
+import { formatVND, formatNumber, timeAgo, formatPhone, NO_VALUE } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -52,34 +52,38 @@ const stats = computed(() => {
     {
       label: 'Khách tiềm năng',
       hint: 'Tổng số lead trong hệ thống',
-      value: String(leadsCount),
+      value: formatNumber(leadsCount),
       icon: UsersThree,
       tone: 'brand',
       to: '/leads',
+      span: 'lg:col-span-3',
     },
     {
       label: 'Đơn đăng ký',
       hint: 'Tổng số đơn',
-      value: String(ordersCount),
+      value: formatNumber(ordersCount),
       icon: ClipboardText,
       tone: 'info',
       to: '/orders',
-    },
-    {
-      label: 'Doanh thu xác nhận',
-      hint: 'Tổng tiền payment đã xác nhận trong list gần đây',
-      value: formatVND(confirmedTotal),
-      icon: Wallet,
-      tone: 'success',
-      to: '/payments',
+      span: 'lg:col-span-3',
     },
     {
       label: 'Hồ sơ chờ xử lý',
       hint: 'Đơn còn trong giai đoạn cọc / cọc 1 phần',
-      value: String(pendingDocs),
+      value: formatNumber(pendingDocs),
       icon: FolderSimple,
       tone: 'warning',
       to: '/documents',
+      span: 'lg:col-span-2',
+    },
+    {
+      label: 'Doanh thu xác nhận',
+      hint: 'Tổng tiền payment đã xác nhận gần đây',
+      value: formatVND(confirmedTotal),
+      icon: Wallet,
+      tone: 'success',
+      to: '/payments',
+      span: 'lg:col-span-4',
     },
   ]
 })
@@ -100,7 +104,7 @@ function toneClasses(tone: string): string {
     <!-- Greeting -->
     <section class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Tổng quan</p>
+        <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Hôm nay</p>
         <h2 class="text-3xl font-semibold tracking-tighter text-ink mt-1">
           Chào {{ auth.user?.display_name?.split(' ').pop() || auth.user?.username }}
         </h2>
@@ -114,13 +118,13 @@ function toneClasses(tone: string): string {
       </div>
     </section>
 
-    <!-- Stats grid asymmetric: 2 cột rộng + 2 cột hẹp -->
-    <section class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    <!-- Stats bento 12-col: 3 / 3 / 2 / 4 (lead, đơn, hồ sơ, doanh thu) -->
+    <section class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-12">
       <RouterLink
         v-for="stat in stats"
         :key="stat.label"
         :to="stat.to"
-        class="group"
+        :class="['group', stat.span]"
       >
         <Card interactive class="h-full">
           <div class="flex items-start justify-between gap-3">
@@ -178,7 +182,7 @@ function toneClasses(tone: string): string {
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-[14px] font-medium text-ink truncate">{{ lead.name }}</p>
-                <p class="text-[12px] text-ink-60 tabular-nums">{{ formatPhone(lead.phone) }} · {{ lead.vehicle_class || '—' }}</p>
+                <p class="text-[12px] text-ink-60 tabular-nums">{{ formatPhone(lead.phone) }} · {{ lead.vehicle_class || NO_VALUE }}</p>
               </div>
               <div class="flex flex-col items-end gap-1.5 shrink-0">
                 <StatusBadge :status="lead.status" kind="lead" />

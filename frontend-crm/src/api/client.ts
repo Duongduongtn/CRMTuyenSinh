@@ -3,7 +3,7 @@
  *
  * - `withCredentials: true` để gửi/nhận session cookie cùng origin (dev: localhost qua Vite proxy, prod: cùng subdomain crm.).
  * - Interceptor request: đọc cookie `csrftoken` và set header `X-CSRFToken` cho mọi
- *   POST/PUT/PATCH/DELETE — Django CsrfViewMiddleware yêu cầu.
+ *   POST/PUT/PATCH/DELETE (Django CsrfViewMiddleware yêu cầu).
  * - Interceptor response: 401/403 trên endpoint protected → đẩy về /login.
  */
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
@@ -23,7 +23,7 @@ export const api: AxiosInstance = axios.create({
   headers: {
     Accept: 'application/json',
   },
-  // 25s — đủ cho query report nặng. Hơn nữa thì cancel.
+  // 25s, đủ cho query report nặng. Hơn nữa thì cancel.
   timeout: 25_000,
 })
 

@@ -11,7 +11,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { fetchPayments } from '@/api/payments'
-import { formatVND, formatDateTime } from '@/lib/format'
+import { formatVND, formatNumber, formatDateTime, NO_VALUE } from '@/lib/format'
 
 const search = ref('')
 const debouncedSearch = useDebounce(search, 300)
@@ -50,7 +50,7 @@ const statusOptions = [
       <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Tài chính</p>
       <h2 class="text-3xl font-semibold tracking-tighter text-ink mt-1">Thanh toán</h2>
       <p class="text-[13px] text-ink-60 mt-1">
-        {{ data?.count ?? '—' }} giao dịch. Tự đối soát qua Casso webhook trong 2 phút.
+        {{ formatNumber(data?.count ?? null) }} giao dịch. Tự đối soát qua Casso webhook trong 2 phút.
       </p>
     </header>
 
@@ -74,12 +74,12 @@ const statusOptions = [
         <table class="w-full text-[13.5px]">
           <thead class="bg-paper-alt/70 text-[11px] uppercase tracking-wider text-ink-60 font-semibold">
             <tr>
-              <th class="px-6 py-3 text-left">Mã đơn</th>
-              <th class="px-3 py-3 text-right">Số tiền</th>
-              <th class="px-3 py-3 text-left">Phương thức</th>
-              <th class="px-3 py-3 text-left">Trạng thái</th>
-              <th class="px-3 py-3 text-left">Xác nhận lúc</th>
-              <th class="px-3 py-3 text-left pr-6">Ghi chú</th>
+              <th scope="col" class="px-6 py-3 text-left">Mã đơn</th>
+              <th scope="col" class="px-3 py-3 text-right">Số tiền</th>
+              <th scope="col" class="px-3 py-3 text-left">Phương thức</th>
+              <th scope="col" class="px-3 py-3 text-left">Trạng thái</th>
+              <th scope="col" class="px-3 py-3 text-left">Xác nhận lúc</th>
+              <th scope="col" class="px-3 py-3 text-left pr-6">Ghi chú</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line-soft">
@@ -89,7 +89,7 @@ const statusOptions = [
               <td class="px-3 py-3.5 text-ink-60">{{ p.payment_method }}</td>
               <td class="px-3 py-3.5"><StatusBadge :status="p.status" kind="payment" /></td>
               <td class="px-3 py-3.5 text-ink-60 text-[12px]">{{ formatDateTime(p.confirmed_at) }}</td>
-              <td class="px-3 py-3.5 pr-6 text-ink-60 text-[12px] truncate max-w-xs">{{ p.note || '—' }}</td>
+              <td class="px-3 py-3.5 pr-6 text-ink-60 text-[12px] truncate max-w-xs">{{ p.note || NO_VALUE }}</td>
             </tr>
           </tbody>
         </table>

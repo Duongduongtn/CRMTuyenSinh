@@ -12,6 +12,7 @@ import {
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
+import { ROLES } from '@/lib/roles'
 
 const auth = useAuthStore()
 const site = useSiteStore()
@@ -27,11 +28,11 @@ interface NavItem {
 
 const items = computed<NavItem[]>(() => [
   { to: '/', label: 'Tổng quan', icon: House },
-  { to: '/leads', label: 'Khách tiềm năng', icon: UsersThree, groups: ['admin', 'sale'] },
-  { to: '/orders', label: 'Đơn đăng ký', icon: ClipboardText, groups: ['admin', 'sale', 'accountant', 'clerk'] },
-  { to: '/payments', label: 'Thanh toán', icon: Wallet, groups: ['admin', 'accountant'] },
-  { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: ['admin', 'clerk'] },
-  { to: '/students', label: 'Học viên', icon: GraduationCap, groups: ['admin', 'clerk', 'sale'] },
+  { to: '/leads', label: 'Khách tiềm năng', icon: UsersThree, groups: [ROLES.ADMIN, ROLES.SALE] },
+  { to: '/orders', label: 'Đơn đăng ký', icon: ClipboardText, groups: [ROLES.ADMIN, ROLES.SALE, ROLES.ACCOUNTANT, ROLES.CLERK] },
+  { to: '/payments', label: 'Thanh toán', icon: Wallet, groups: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
+  { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: [ROLES.ADMIN, ROLES.CLERK] },
+  { to: '/students', label: 'Học viên', icon: GraduationCap, groups: [ROLES.ADMIN, ROLES.CLERK, ROLES.SALE] },
 ])
 
 const visibleItems = computed(() =>
@@ -59,13 +60,13 @@ function isActive(to: string): boolean {
       <div class="min-w-0">
         <p class="text-[10px] uppercase tracking-wider text-ink-40 font-semibold">CRM nội bộ</p>
         <p class="text-sm font-semibold text-ink tracking-tight truncate">
-          {{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM Tuyển Sinh' }}
+          {{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM nội bộ' }}
         </p>
       </div>
     </div>
 
     <!-- Nav -->
-    <nav class="flex-1 overflow-y-auto px-3 py-5">
+    <nav class="flex-1 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
       <p class="px-3 text-[10px] uppercase tracking-wider text-ink-40 font-semibold mb-2">Điều hướng</p>
       <ul class="space-y-0.5">
         <li v-for="item in visibleItems" :key="item.to">

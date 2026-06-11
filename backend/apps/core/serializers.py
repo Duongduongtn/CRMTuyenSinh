@@ -1,11 +1,12 @@
-"""DRF serializers cho app core — SiteSettings public cho FE."""
+"""DRF serializers cho app core, SiteSettings public cho FE."""
+from django.conf import settings as django_settings
 from rest_framework import serializers
 
 from .models import SiteSettings
 
 
 class SiteSettingsPublicSerializer(serializers.ModelSerializer):
-    """Brand + contact + SEO mặc định cho FE Nuxt.
+    """Brand + contact + SEO mặc định cho FE Nuxt + FE CRM + PWA học viên.
 
     KHÔNG expose: bank info, casso webhook, tax code, license nội bộ.
     """
@@ -14,6 +15,7 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
     favicon_url = serializers.SerializerMethodField()
     og_image_url = serializers.SerializerMethodField()
     address_full = serializers.SerializerMethodField()
+    student_url = serializers.SerializerMethodField()
 
     class Meta:
         model = SiteSettings
@@ -49,6 +51,7 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             "stat_pass_rate_percent",
             "stat_years_experience",
             "stat_practice_area_m2",
+            "student_url",
         ]
 
     def _absolute(self, field) -> str:
@@ -72,3 +75,7 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
     def get_address_full(self, obj) -> str:
         parts = [obj.address_line, obj.ward, obj.district, obj.city]
         return ", ".join(p for p in parts if p)
+
+    def get_student_url(self, _obj) -> str:
+        # FE cần URL trỏ PWA học viên. Đọc từ env SITE_STUDENT_URL để không hardcode subdomain.
+        return getattr(django_settings, "SITE_STUDENT_URL", "")

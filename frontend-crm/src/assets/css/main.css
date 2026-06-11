@@ -29,7 +29,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Scrollbar gọn — phong cách minimalist */
+  /* Scrollbar gọn, phong cách minimalist */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -46,7 +46,7 @@
     background: theme('colors.ink.40');
   }
 
-  /* Focus ring chuẩn — emerald nhạt, không quá to */
+  /* Focus ring chuẩn, emerald nhạt, không quá to */
   :where(button, a, input, select, textarea, [role='button']):focus-visible {
     outline: 2px solid theme('colors.brand.500');
     outline-offset: 2px;

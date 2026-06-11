@@ -53,7 +53,7 @@ const onSubmit = handleSubmit(async (values) => {
 
 <template>
   <main class="min-h-screen bg-paper grid lg:grid-cols-[1fr_minmax(0,420px)] xl:grid-cols-[1fr_460px]">
-    <!-- Cột thương hiệu — chỉ hiện desktop, tối, asymmetric -->
+    <!-- Cột thương hiệu, chỉ hiện desktop, tối, asymmetric -->
     <aside class="relative hidden lg:flex flex-col justify-between bg-ink text-paper p-12 xl:p-16 overflow-hidden">
       <div class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-brand-600/15 blur-3xl" aria-hidden="true" />
       <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" aria-hidden="true" />
@@ -76,8 +76,8 @@ const onSubmit = handleSubmit(async (values) => {
           <span class="text-brand-300">trọn vòng đời học viên.</span>
         </h1>
         <p class="text-paper/70 leading-relaxed">
-          Tiếp nhận khách quan tâm, chốt đơn, đối soát thanh toán và duyệt hồ sơ — tất cả trong một nơi.
-          Dành riêng cho tư vấn viên, kế toán và văn thư của trung tâm.
+          Tiếp nhận khách, chốt đơn, đối soát thanh toán, duyệt hồ sơ.
+          Một quy trình, một nguồn dữ liệu cho tư vấn viên, kế toán và văn thư.
         </p>
         <ul class="space-y-3 text-[13px] text-paper/70">
           <li class="flex items-start gap-2.5">
@@ -90,7 +90,7 @@ const onSubmit = handleSubmit(async (values) => {
           </li>
           <li class="flex items-start gap-2.5">
             <CaretRight :size="14" weight="bold" class="text-brand-300 mt-1 shrink-0" />
-            <span>Lịch sử tiếp xúc của từng lead — không mất dấu vết khi đổi sale phụ trách.</span>
+            <span>Lịch sử tiếp xúc của từng lead, không mất dấu vết khi đổi sale phụ trách.</span>
           </li>
         </ul>
       </div>
@@ -156,9 +156,9 @@ const onSubmit = handleSubmit(async (values) => {
             <CaretRight :size="16" weight="bold" />
           </Button>
 
-          <p class="text-center text-[12px] text-ink-40 pt-2">
+          <p v-if="site.settings?.student_url" class="text-center text-[12px] text-ink-40 pt-2">
             Học viên xem khoá học, lịch học?
-            <a href="https://hocvien.tencongty.vn" class="text-brand-700 hover:underline underline-offset-2">
+            <a :href="site.settings.student_url" class="text-brand-700 hover:underline underline-offset-2">
               Vào trang học viên
             </a>
           </p>

@@ -10,8 +10,10 @@ import {
   List,
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
 
 const auth = useAuthStore()
+const site = useSiteStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -45,10 +47,12 @@ const initials = () => {
     </button>
 
     <div class="min-w-0 flex-1">
-      <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold">CRM Tuyển Sinh</p>
-      <h1 class="text-base font-semibold text-ink tracking-tight truncate">
+      <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold truncate">
+        {{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM nội bộ' }}
+      </p>
+      <p class="text-base font-semibold text-ink tracking-tight truncate" role="heading" aria-level="1">
         {{ (route.meta.title as string) || 'Tổng quan' }}
-      </h1>
+      </p>
     </div>
 
     <button

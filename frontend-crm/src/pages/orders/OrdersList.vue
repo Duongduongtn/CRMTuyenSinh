@@ -13,7 +13,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { fetchEnrollments, downloadEnrollmentPDF } from '@/api/orders'
-import { formatVND, formatDateTime } from '@/lib/format'
+import { formatVND, formatNumber, formatDateTime } from '@/lib/format'
 
 const router = useRouter()
 const search = ref('')
@@ -72,7 +72,7 @@ async function printPDF(id: number, code: string, e: MouseEvent) {
         <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Đơn đăng ký</p>
         <h2 class="text-3xl font-semibold tracking-tighter text-ink mt-1">Danh sách đơn</h2>
         <p class="text-[13px] text-ink-60 mt-1">
-          {{ data?.count ?? '—' }} đơn trong hệ thống. Click vào dòng để xem chi tiết, hoặc bấm "In PDF" để tải đơn đăng ký nộp Sở.
+          {{ formatNumber(data?.count ?? null) }} đơn trong hệ thống. Click vào dòng để xem chi tiết, hoặc bấm "In PDF" để tải đơn đăng ký nộp Sở.
         </p>
       </div>
     </header>
@@ -97,14 +97,14 @@ async function printPDF(id: number, code: string, e: MouseEvent) {
         <table class="w-full text-[13.5px]">
           <thead class="bg-paper-alt/70 text-[11px] uppercase tracking-wider text-ink-60 font-semibold">
             <tr>
-              <th class="px-6 py-3 text-left">Mã đơn</th>
-              <th class="px-3 py-3 text-left">Học viên</th>
-              <th class="px-3 py-3 text-left">Khoá học</th>
-              <th class="px-3 py-3 text-right">Tổng tiền</th>
-              <th class="px-3 py-3 text-right">Đã đóng</th>
-              <th class="px-3 py-3 text-left">Trạng thái</th>
-              <th class="px-3 py-3 text-left">Tạo lúc</th>
-              <th class="px-3 py-3 text-right pr-6"></th>
+              <th scope="col" class="px-6 py-3 text-left">Mã đơn</th>
+              <th scope="col" class="px-3 py-3 text-left">Học viên</th>
+              <th scope="col" class="px-3 py-3 text-left">Khoá học</th>
+              <th scope="col" class="px-3 py-3 text-right">Tổng tiền</th>
+              <th scope="col" class="px-3 py-3 text-right">Đã đóng</th>
+              <th scope="col" class="px-3 py-3 text-left">Trạng thái</th>
+              <th scope="col" class="px-3 py-3 text-left">Tạo lúc</th>
+              <th scope="col" class="px-3 py-3 text-right pr-6"><span class="sr-only">Hành động</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-line-soft">

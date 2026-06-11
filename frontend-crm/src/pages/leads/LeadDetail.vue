@@ -18,7 +18,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LeadContactModal from '@/components/LeadContactModal.vue'
 import { fetchLead } from '@/api/leads'
-import { formatDate, formatDateTime, formatPhone, timeAgo } from '@/lib/format'
+import { formatDate, formatDateTime, formatPhone, timeAgo, NO_VALUE } from '@/lib/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,15 +67,15 @@ const modalOpen = ref(false)
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-y-4 mt-6 pt-6 border-t border-line-soft text-[13px]">
             <div class="space-y-0.5">
               <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold">Email</p>
-              <p class="text-ink truncate">{{ data.email || '—' }}</p>
+              <p class="text-ink truncate">{{ data.email || NO_VALUE }}</p>
             </div>
             <div class="space-y-0.5">
               <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold">Khu vực</p>
-              <p class="text-ink">{{ data.district || '—' }}</p>
+              <p class="text-ink">{{ data.district || NO_VALUE }}</p>
             </div>
             <div class="space-y-0.5">
               <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold">Hạng quan tâm</p>
-              <p class="text-ink">{{ data.vehicle_class || '—' }}</p>
+              <p class="text-ink">{{ data.vehicle_class || NO_VALUE }}</p>
             </div>
             <div class="space-y-0.5">
               <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold">Phụ trách</p>
@@ -186,7 +186,7 @@ const modalOpen = ref(false)
         <Card tone="alt">
           <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold mb-2">Thiết bị</p>
           <p class="text-[12px] text-ink-60 leading-relaxed">
-            {{ data.device_browser || '—' }} · {{ data.device_os || '—' }}
+            {{ data.device_browser || NO_VALUE }} · {{ data.device_os || NO_VALUE }}
             <span v-if="data.screen_size"> · {{ data.screen_size }}</span>
           </p>
           <p v-if="data.ip_address" class="text-[11px] text-ink-40 mt-1 font-mono">IP {{ data.ip_address }}</p>

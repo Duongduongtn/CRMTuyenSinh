@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, useAttrs } from 'vue'
 import { cn } from '@/lib/utils'
+import { NO_VALUE } from '@/lib/format'
 
 defineOptions({ inheritAttrs: false })
 
@@ -19,7 +20,7 @@ const props = withDefaults(
     placeholder?: string
     options?: Option[]
   }>(),
-  { placeholder: '—' },
+  { placeholder: NO_VALUE },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const attrs = useAttrs()
