@@ -14,6 +14,7 @@ import Card from '@/components/ui/Card.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import { fetchLeads } from '@/api/leads'
 import { fetchEnrollments } from '@/api/orders'
 import { fetchPayments } from '@/api/payments'
@@ -165,6 +166,13 @@ function toneClasses(tone: string): string {
         <div v-if="recentLeads.isLoading.value" class="px-6 py-12 flex justify-center">
           <Spinner label="Đang tải lead..." />
         </div>
+        <div v-else-if="recentLeads.isError.value" class="px-6">
+          <ErrorState
+            title="Không tải được lead gần đây"
+            :error="recentLeads.error.value"
+            :on-retry="() => recentLeads.refetch()"
+          />
+        </div>
         <div v-else-if="(recentLeads.data.value?.results.length ?? 0) === 0" class="px-6">
           <EmptyState title="Chưa có lead nào" description="Khi học viên đăng ký qua form public, lead sẽ xuất hiện ở đây." />
         </div>
@@ -210,6 +218,13 @@ function toneClasses(tone: string): string {
 
         <div v-if="recentOrders.isLoading.value" class="px-6 py-12 flex justify-center">
           <Spinner label="Đang tải đơn..." />
+        </div>
+        <div v-else-if="recentOrders.isError.value" class="px-6">
+          <ErrorState
+            title="Không tải được đơn gần đây"
+            :error="recentOrders.error.value"
+            :on-retry="() => recentOrders.refetch()"
+          />
         </div>
         <div v-else-if="(recentOrders.data.value?.results.length ?? 0) === 0" class="px-6">
           <EmptyState title="Chưa có đơn nào" description="Sale chốt lead sẽ tạo đơn ở đây." />

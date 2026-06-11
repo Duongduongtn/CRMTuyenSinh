@@ -1,0 +1,32 @@
+# CRM Tuyen Sinh - cron backup Postgres
+#
+# Cai dat tren VPS:
+#   sudo cp /var/www/thanhdat/infra/cron/thanhdat-pg-backup /etc/cron.d/
+#   sudo chmod 644 /etc/cron.d/thanhdat-pg-backup
+#   sudo chown root:root /etc/cron.d/thanhdat-pg-backup
+#
+# Verify:
+#   sudo systemctl reload cron       # Debian/Ubuntu auto reload moi 1 phut
+#   sudo run-parts --test /etc/cron.daily
+#
+# Test thu cong (chay luon, khong cho 2h sang):
+#   sudo bash /var/www/thanhdat/infra/scripts/pg_backup.sh
+#
+# Log:
+#   tail -f /var/log/thanhdat-backup.log
+#   tail -f /var/log/syslog | grep CRON
+#
+# Format /etc/cron.d: them user field giua time va command (khac voi crontab user).
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=""
+
+# Backup Postgres luc 2h sang (gio thap tai), thu Hai - Chu Nhat.
+# Output redirect ve /dev/null vi script da tu ghi log /var/log/thanhdat-backup.log;
+# neu exit code != 0 cron mailer van fire (MAILTO="" tat mail).
+0 2 * * * root /var/www/thanhdat/infra/scripts/pg_backup.sh >/dev/null 2>&1
+
+# Weekly health check luc 1h sang Chu Nhat: kiem tra script chay duoc,
+# container song, write quyen.
+0 1 * * 0 root /var/www/thanhdat/infra/scripts/pg_backup.sh --check >/dev/null 2>&1

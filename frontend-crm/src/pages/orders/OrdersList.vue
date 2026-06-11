@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select.vue'
 import Button from '@/components/ui/Button.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { fetchEnrollments, downloadEnrollmentPDF } from '@/api/orders'
 import { formatVND, formatNumber, formatDateTime } from '@/lib/format'
@@ -27,11 +28,19 @@ const queryParams = computed(() => ({
   status: status.value || undefined,
 }))
 
-const { data, isLoading } = useQuery({
+const { data, isLoading, isError, error, refetch } = useQuery({
   queryKey: ['orders', queryParams],
   queryFn: () => fetchEnrollments(queryParams.value),
   placeholderData: (prev) => prev,
 })
+
+const hasActiveFilter = computed(() => !!(debouncedSearch.value || status.value))
+
+function clearFilters() {
+  search.value = ''
+  status.value = ''
+  page.value = 1
+}
 
 watch([debouncedSearch, status], () => {
   page.value = 1
@@ -90,8 +99,28 @@ async function printPDF(id: number, code: string, e: MouseEvent) {
       <div v-if="isLoading" class="flex justify-center py-20">
         <Spinner label="Đang tải danh sách đơn..." />
       </div>
+      <div v-else-if="isError" class="py-12">
+        <ErrorState
+          title="Không tải được danh sách đơn"
+          :error="error"
+          :on-retry="() => refetch()"
+        />
+      </div>
       <div v-else-if="(data?.results.length ?? 0) === 0" class="py-12">
-        <EmptyState title="Chưa có đơn nào" description="Đơn xuất hiện sau khi sale chốt lead." />
+        <EmptyState
+          v-if="hasActiveFilter"
+          title="Không có đơn nào khớp bộ lọc"
+          description="Thử mở rộng bộ lọc hoặc bỏ lọc để xem tất cả đơn."
+        >
+          <template #action>
+            <Button variant="secondary" size="sm" @click="clearFilters">Bỏ tất cả bộ lọc</Button>
+          </template>
+        </EmptyState>
+        <EmptyState
+          v-else
+          title="Chưa có đơn đăng ký nào"
+          description="Đơn được tạo khi sale chốt lead thành công. Mỗi đơn sẽ có QR cọc, theo dõi paid, in PDF nộp Sở."
+        />
       </div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[13.5px]">

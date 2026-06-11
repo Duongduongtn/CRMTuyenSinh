@@ -9,6 +9,7 @@ import Select from '@/components/ui/Select.vue'
 import Button from '@/components/ui/Button.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { fetchPayments } from '@/api/payments'
 import { formatVND, formatNumber, formatDateTime, NO_VALUE } from '@/lib/format'
@@ -24,11 +25,19 @@ const params = computed(() => ({
   status: status.value || undefined,
 }))
 
-const { data, isLoading } = useQuery({
+const { data, isLoading, isError, error, refetch } = useQuery({
   queryKey: ['payments', params],
   queryFn: () => fetchPayments(params.value),
   placeholderData: (prev) => prev,
 })
+
+const hasActiveFilter = computed(() => !!(debouncedSearch.value || status.value))
+
+function clearFilters() {
+  search.value = ''
+  status.value = ''
+  page.value = 1
+}
 
 watch([debouncedSearch, status], () => {
   page.value = 1
@@ -67,8 +76,28 @@ const statusOptions = [
       <div v-if="isLoading" class="flex justify-center py-20">
         <Spinner label="Đang tải giao dịch..." />
       </div>
+      <div v-else-if="isError" class="py-12">
+        <ErrorState
+          title="Không tải được giao dịch"
+          :error="error"
+          :on-retry="() => refetch()"
+        />
+      </div>
       <div v-else-if="(data?.results.length ?? 0) === 0" class="py-12">
-        <EmptyState title="Chưa có giao dịch" description="Khi học viên cọc, giao dịch xuất hiện ở đây." />
+        <EmptyState
+          v-if="hasActiveFilter"
+          title="Không có giao dịch khớp bộ lọc"
+          description="Thử mở rộng khoảng tìm kiếm hoặc bỏ lọc để xem tất cả giao dịch."
+        >
+          <template #action>
+            <Button variant="secondary" size="sm" @click="clearFilters">Bỏ tất cả bộ lọc</Button>
+          </template>
+        </EmptyState>
+        <EmptyState
+          v-else
+          title="Chưa có giao dịch nào"
+          description="Khi học viên cọc qua QR, Casso webhook tự đối soát và tạo giao dịch ở đây trong vòng 2 phút."
+        />
       </div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-[13.5px]">

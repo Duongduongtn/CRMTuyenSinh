@@ -252,17 +252,91 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml exec backend \
 
 ### Khôi phục DB từ backup
 
-Postgres không có sẵn auto-backup — **cần setup riêng** (cronjob `pg_dump` → S3/local). Tạm thời:
+Auto-backup đã có sẵn qua `infra/scripts/pg_backup.sh` + cron daily 2h sáng (xem mục [Backup Postgres](#backup-postgres) bên dưới).
 
 ```bash
-# Backup snapshot trước migration nguy hiểm:
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T db \
-  pg_dump -U crm_thanhdat crm_thanhdat | gzip > /var/backups/crm-$(date +%Y%m%d-%H%M).sql.gz
+# Restore từ snapshot cụ thể (sẽ DROP database hiện tại, có prompt xác nhận):
+bash /var/www/thanhdat/infra/scripts/pg_restore.sh /var/backups/thanhdat/crm-YYYYMMDD-HHMM.sql.gz
 
-# Restore:
-gunzip < /var/backups/crm-YYYYMMDD-HHMM.sql.gz | \
-  docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T db \
-  psql -U crm_thanhdat crm_thanhdat
+# Restore từ snapshot mới nhất:
+bash /var/www/thanhdat/infra/scripts/pg_restore.sh --latest
+
+# Snapshot thủ công trước migration nguy hiểm:
+bash /var/www/thanhdat/infra/scripts/pg_backup.sh
+```
+
+> Trước khi restore: stop backend + celery để tránh write conflict.
+> ```bash
+> docker compose --env-file .env.prod -f docker-compose.prod.yml stop backend celery-worker celery-beat
+> bash infra/scripts/pg_restore.sh --latest
+> docker compose --env-file .env.prod -f docker-compose.prod.yml start backend celery-worker celery-beat
+> ```
+
+## Backup Postgres
+
+Script: `infra/scripts/pg_backup.sh` + cron file `infra/cron/thanhdat-pg-backup`.
+
+**Cài đặt lần đầu** (chạy 1 lần khi setup VPS):
+
+```bash
+sudo cp /var/www/thanhdat/infra/cron/thanhdat-pg-backup /etc/cron.d/
+sudo chmod 644 /etc/cron.d/thanhdat-pg-backup
+sudo chown root:root /etc/cron.d/thanhdat-pg-backup
+sudo chmod +x /var/www/thanhdat/infra/scripts/pg_backup.sh
+sudo chmod +x /var/www/thanhdat/infra/scripts/pg_restore.sh
+
+# Test thủ công lần đầu:
+sudo bash /var/www/thanhdat/infra/scripts/pg_backup.sh
+
+# Verify cron đã load (Ubuntu/Debian auto reload mỗi 1 phút):
+sudo systemctl status cron
+ls -la /var/backups/thanhdat/
+tail -20 /var/log/thanhdat-backup.log
+```
+
+**Lịch chạy mặc định:**
+
+| Lịch | Lệnh | Mục đích |
+|---|---|---|
+| `0 2 * * *` daily | `pg_backup.sh` | Dump + gzip, đặt `/var/backups/thanhdat/crm-YYYYMMDD-HHMM.sql.gz`. Rotate giữ 30 ngày. |
+| `0 1 * * 0` chủ nhật | `pg_backup.sh --check` | Health check container + write quyền. Không dump. |
+
+**Tuỳ chỉnh qua env** (đặt trong `/etc/default/thanhdat-backup` hoặc export trước khi gọi):
+
+| Env | Mặc định | Ý nghĩa |
+|---|---|---|
+| `BACKUP_DIR` | `/var/backups/thanhdat` | Thư mục đích. |
+| `BACKUP_RETENTION_DAYS` | `30` | Số ngày giữ, file cũ hơn sẽ bị xoá sau mỗi lần backup thành công. |
+| `BACKUP_LOG` | `/var/log/thanhdat-backup.log` | File log append-only, soi qua `tail -f`. |
+| `BACKUP_S3_BUCKET` | (unset) | Nếu set + có `aws` CLI, sync file lên S3/R2 sau khi dump. Dùng cho phase offsite. |
+| `DB_CONTAINER` | `thanhdat-db` | Container Postgres, khớp `docker-compose.prod.yml`. |
+
+**Kiểm tra hằng tuần (manual):**
+
+```bash
+# Liệt kê backup hiện có + size:
+ls -lh /var/backups/thanhdat/
+
+# Đọc 50 dòng log gần nhất:
+tail -50 /var/log/thanhdat-backup.log
+
+# Verify gzip integrity của tất cả file:
+for f in /var/backups/thanhdat/crm-*.sql.gz; do gzip -t "$f" && echo "OK: $f" || echo "FAIL: $f"; done
+
+# Test restore vào DB khác để verify (KHÔNG chạy trên prod):
+gunzip -c /var/backups/thanhdat/crm-YYYYMMDD-HHMM.sql.gz | head -100
+```
+
+**Mở rộng offsite (sau go-live):**
+
+1. Tạo bucket Cloudflare R2 hoặc S3, sinh access key.
+2. Cài `aws` CLI trên VPS (`apt install awscli` hoặc dùng MinIO mc).
+3. Tạo `/root/.aws/credentials` + `/root/.aws/config` cho user `root` (cron chạy với quyền root).
+4. Thêm `BACKUP_S3_BUCKET=thanhdat-backup` vào `/etc/default/thanhdat-backup`.
+5. Update cron file để source env:
+
+```cron
+0 2 * * * root . /etc/default/thanhdat-backup && /var/www/thanhdat/infra/scripts/pg_backup.sh >/dev/null 2>&1
 ```
 
 ## Logs
@@ -310,7 +384,7 @@ sudo systemctl reload nginx
 ## Checklist trước go-live
 
 - [ ] Tất cả secrets `.env.prod` đã thay placeholder.
-- [ ] Postgres `pg_dump` backup cronjob đã cài.
+- [ ] Postgres `pg_dump` backup cronjob đã cài (`/etc/cron.d/thanhdat-pg-backup`, retention 30 ngày, log `/var/log/thanhdat-backup.log`).
 - [ ] DNS A record đã trỏ đúng.
 - [ ] SSL cert đã cấp + nginx reload OK.
 - [ ] `python manage.py check --deploy` không có warning critical.

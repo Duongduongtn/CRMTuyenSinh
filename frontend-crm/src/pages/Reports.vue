@@ -15,6 +15,7 @@ import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import { exportRevenueXlsx, fetchConversion, fetchRevenue } from '@/api/reports'
 import { formatNumber, formatVND } from '@/lib/format'
 
@@ -94,7 +95,7 @@ function barWidth(amount: string): string {
         <p class="text-[12px] uppercase tracking-wider text-brand-700 font-semibold">Tài chính</p>
         <h2 class="text-3xl font-semibold tracking-tighter text-ink mt-1">Báo cáo</h2>
         <p class="text-[13px] text-ink-60 mt-1">
-          Doanh thu xác nhận theo ngày và tỉ lệ chuyển đổi lead — đơn — paid.
+          Doanh thu xác nhận theo ngày và tỉ lệ chuyển đổi lead → đơn → paid.
         </p>
       </div>
       <Button
@@ -127,9 +128,23 @@ function barWidth(amount: string): string {
       </div>
     </Card>
 
+    <!-- Conversion loading / error / empty -->
+    <Card v-if="conversionQuery.isLoading.value" class="py-2">
+      <div class="flex justify-center py-10">
+        <Spinner label="Đang tải tỉ lệ chuyển đổi..." />
+      </div>
+    </Card>
+    <Card v-else-if="conversionQuery.isError.value" class="py-2">
+      <ErrorState
+        title="Không tải được tỉ lệ chuyển đổi"
+        :error="conversionQuery.error.value"
+        :on-retry="() => conversionQuery.refetch()"
+      />
+    </Card>
+
     <!-- Conversion summary bento -->
     <section
-      v-if="conversion"
+      v-else-if="conversion"
       class="grid gap-4 grid-cols-2 lg:grid-cols-12"
     >
       <Card class="lg:col-span-3">
@@ -217,10 +232,17 @@ function barWidth(amount: string): string {
       <div v-if="revenueQuery.isLoading.value" class="flex justify-center py-20">
         <Spinner label="Đang tải báo cáo..." />
       </div>
+      <div v-else-if="revenueQuery.isError.value" class="py-12">
+        <ErrorState
+          title="Không tải được doanh thu"
+          :error="revenueQuery.error.value"
+          :on-retry="() => revenueQuery.refetch()"
+        />
+      </div>
       <div v-else-if="!revenue?.rows.length" class="py-12">
         <EmptyState
-          title="Chưa có giao dịch xác nhận"
-          description="Thử mở rộng khoảng ngày hoặc đợi đối soát Casso."
+          title="Chưa có giao dịch xác nhận trong khoảng"
+          description="Thử mở rộng khoảng ngày, đợi đối soát Casso, hoặc kiểm tra trạng thái thanh toán ở mục Thanh toán."
         />
       </div>
       <div v-else class="px-6 py-4">
@@ -253,7 +275,7 @@ function barWidth(amount: string): string {
       <CaretRight :size="11" class="inline -mt-0.5" weight="bold" />
       Báo cáo dựa trên Payment có status xác nhận và Enrollment trong cohort khoảng.
       Lưu ý: số "Đơn đã đóng cọc" tính enrollment tạo trong khoảng đã có ít nhất 1
-      payment xác nhận (kể cả sau khoảng) — khác doanh thu (chỉ tính payment xác
+      payment xác nhận (kể cả sau khoảng); khác doanh thu (chỉ tính payment xác
       nhận trong khoảng).
     </p>
   </div>

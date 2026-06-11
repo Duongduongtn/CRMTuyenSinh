@@ -10,6 +10,7 @@ import Select from '@/components/ui/Select.vue'
 import Button from '@/components/ui/Button.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LeadContactModal from '@/components/LeadContactModal.vue'
 import { fetchLeads } from '@/api/leads'
@@ -32,11 +33,23 @@ const queryParams = computed(() => ({
   source: source.value || undefined,
 }))
 
-const { data, isLoading, isFetching } = useQuery({
+const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
   queryKey: ['leads', queryParams],
   queryFn: () => fetchLeads(queryParams.value),
   placeholderData: (prev) => prev,
 })
+
+const hasActiveFilter = computed(
+  () => !!(debouncedSearch.value || status.value || priority.value || source.value),
+)
+
+function clearFilters() {
+  search.value = ''
+  status.value = ''
+  priority.value = ''
+  source.value = ''
+  page.value = 1
+}
 
 const totalPages = computed(() => {
   const count = data.value?.count ?? 0
@@ -132,10 +145,27 @@ function vehicleClassLabel(code: string): string {
       <div v-if="isLoading" class="flex justify-center py-20">
         <Spinner label="Đang tải danh sách lead..." />
       </div>
+      <div v-else-if="isError" class="py-12">
+        <ErrorState
+          title="Không tải được danh sách lead"
+          :error="error"
+          :on-retry="() => refetch()"
+        />
+      </div>
       <div v-else-if="(data?.results.length ?? 0) === 0" class="py-12">
         <EmptyState
+          v-if="hasActiveFilter"
           title="Không có lead nào khớp bộ lọc"
-          description="Thử xoá bộ lọc hoặc đợi lead mới đăng ký từ form public."
+          description="Thử mở rộng bộ lọc hoặc bỏ lọc để xem toàn bộ lead."
+        >
+          <template #action>
+            <Button variant="secondary" size="sm" @click="clearFilters">Bỏ tất cả bộ lọc</Button>
+          </template>
+        </EmptyState>
+        <EmptyState
+          v-else
+          title="Chưa có lead nào trong hệ thống"
+          description="Lead xuất hiện khi học viên đăng ký qua form public, gọi hotline, hoặc bật webhook FB Lead Ads. Bạn cũng có thể tạo lead thủ công."
         />
       </div>
       <div v-else class="overflow-x-auto">
