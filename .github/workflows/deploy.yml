@@ -118,7 +118,50 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------
-  # 3. Frontend Student (PWA hoc vien) build - Nuxt 3 SPA mode (ssr: false).
+  # 3. Frontend Public (Nuxt 3 hybrid SSR) build.
+  #    `nuxt build` voi preset node-server -> xuat `.output/server/index.mjs`
+  #    + `.output/public/` (prerender). Rsync ca cay .output len VPS, docker
+  #    service `frontend-public-ssr` mount va spawn `node server/index.mjs`.
+  # -------------------------------------------------------------------
+  frontend-public-build:
+    name: Frontend Public hybrid SSR build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend-public/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: frontend-public
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Nuxt 3 hybrid, preset node-server)
+        working-directory: frontend-public
+        env:
+          NUXT_PUBLIC_API_BASE: https://sale.trungtamthanhdat.com/api
+          NUXT_PUBLIC_SITE_URL: https://trungtamthanhdat.com
+          NUXT_PUBLIC_STUDENT_URL: https://hocvien.trungtamthanhdat.com
+        run: pnpm run build
+
+      - name: Upload .output artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-public-output
+          path: frontend-public/.output/
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 4. Frontend Student (PWA hoc vien) build - Nuxt 3 SPA mode (ssr: false).
   #    `nuxt generate` xuat static .output/public/ -> rsync len nginx serve.
   # -------------------------------------------------------------------
   frontend-student-build:
@@ -158,12 +201,12 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------
-  # 4. Deploy - SSH vao VPS, pull code, rebuild backend container,
-  #    rsync 2 FE dist (CRM + PWA hoc vien) len cac thu muc tuong ung.
+  # 5. Deploy - SSH vao VPS, pull code, rebuild backend container,
+  #    rsync 3 FE dist (CRM + PWA hoc vien + Public SSR) len cac thu muc.
   # -------------------------------------------------------------------
   deploy:
     name: Deploy len VPS
-    needs: [backend-test, frontend-crm-build, frontend-student-build]
+    needs: [backend-test, frontend-crm-build, frontend-public-build, frontend-student-build]
     runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main'
     environment:
@@ -196,6 +239,12 @@ jobs:
           name: frontend-student-dist
           path: /tmp/frontend-student-dist/
 
+      - name: Download FE Public hybrid SSR output artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-public-output
+          path: /tmp/frontend-public-output/
+
       - name: SSH deploy backend (git pull + docker compose build/up + migrate)
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -218,6 +267,8 @@ jobs:
           mkdir -p /var/www/thanhdat/frontend-crm/dist
           # PWA hoc vien: nginx tro root vao .output/public (xem hocvien.*.conf:43).
           mkdir -p /var/www/thanhdat/frontend-student/.output/public
+          # FE public: docker service mount .output (server + public).
+          mkdir -p /var/www/thanhdat/frontend-public/.output
 
           # Build backend image (cache layer requirements.txt -> rebuild nhanh khi chi doi code).
           # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
@@ -264,6 +315,30 @@ jobs:
             /tmp/frontend-student-dist/ \
             "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-student/.output/public/"
 
+      - name: Rsync FE Public hybrid SSR output len VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          rsync -avz --delete --no-times \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            /tmp/frontend-public-output/ \
+            "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-public/.output/"
+
+      - name: Restart FE Public SSR service (reload Node process voi code moi)
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh "${VPS_USER}@${VPS_HOST}" bash -se <<'EOF'
+          set -euo pipefail
+          cd /var/www/thanhdat/infra
+          # `up -d` se tao service neu chua co (lan dau), idempotent neu da co.
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend-public-ssr
+          # `restart` de Node process pick up artifact moi (mount read-only).
+          docker compose --env-file .env.prod -f docker-compose.prod.yml restart frontend-public-ssr
+          EOF
+
       - name: Smoke test HTTPS
         run: |
           # Check BE health (chap nhan 200/401/403 - tat ca deu chung to BE alive).
@@ -288,6 +363,18 @@ jobs:
             https://hocvien.trungtamthanhdat.com/)
           echo "PWA hocvien /: $HV_CODE"
           [ "$HV_CODE" = "200" ] || { echo "PWA hocvien FAIL"; exit 1; }
+
+          # Check FE public apex (soft check - lan dau chua bootstrap SSL apex
+          # se return 502/404/000, doc 07 huong dan setup. Sau bootstrap = 200).
+          APEX_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            https://trungtamthanhdat.com/ || echo "000")
+          echo "FE public apex /: $APEX_CODE"
+          case "$APEX_CODE" in
+            200) echo "FE public OK";;
+            000|404|502|503)
+              echo "WARNING: FE public apex chua bootstrap. Doc: docs/07-fe-public-vps.md";;
+            *) echo "FE public FAIL voi code: $APEX_CODE"; exit 1;;
+          esac
 
       - name: Notify Telegram (optional)
         if: always()

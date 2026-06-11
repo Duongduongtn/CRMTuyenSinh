@@ -130,6 +130,40 @@ services:
     networks:
       - thanhdat_net
 
+  # FE public Nuxt 3 hybrid SSR. Build artifact (.output/) rsync tu CI vao
+  # /var/www/thanhdat/frontend-public/.output/. Service mount read-only va
+  # spawn `node server/index.mjs` -> lang nghe 0.0.0.0:3000 internal.
+  # Nginx host proxy_pass 127.0.0.1:3004 -> service nay.
+  #
+  # Cong 3000-3003 chiem boi cac project khac tren VPS chung -> dung 3004.
+  frontend-public-ssr:
+    image: node:20-alpine
+    container_name: thanhdat-frontend-public-ssr
+    restart: unless-stopped
+    environment:
+      NITRO_PORT: "3000"
+      NITRO_HOST: "0.0.0.0"
+      # URL public can dung trong SSR (canonical link, OG meta, fetch BE).
+      NUXT_PUBLIC_API_BASE: https://sale.trungtamthanhdat.com/api
+      NUXT_PUBLIC_SITE_URL: https://trungtamthanhdat.com
+      NUXT_PUBLIC_STUDENT_URL: https://hocvien.trungtamthanhdat.com
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - /var/www/thanhdat/frontend-public/.output:/app:ro
+    working_dir: /app
+    command: ["node", "server/index.mjs"]
+    ports:
+      - "127.0.0.1:3004:3000"
+    healthcheck:
+      # Nuxt SSR khong co endpoint /healthz mac dinh -> GET / luon tra HTML 200.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - thanhdat_net
+
 volumes:
   thanhdat_pgdata:
     name: thanhdat_pgdata

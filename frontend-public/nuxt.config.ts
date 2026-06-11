@@ -35,9 +35,13 @@ export default defineNuxtConfig({
     },
   },
 
-  // SSG: pre-render landing + list khóa + 9 detail khóa + tin-tuc + lien-he.
-  // /dh/[token] để SSR runtime.
+  // Hybrid: prerender landing + khoa-hoc + tin-tuc + lien-he thanh static HTML
+  // (serve sieu nhanh tu Nitro server static layer), /dh/[token] runtime SSR.
+  // Preset node-server -> output `.output/server/index.mjs` chay duoc bang
+  // `node .output/server/index.mjs` tren VPS. Docker service frontend-public-ssr
+  // mount `.output` va spawn process nay, nginx host proxy 127.0.0.1:3004.
   nitro: {
+    preset: 'node-server',
     prerender: {
       crawlLinks: true,
       routes: ['/', '/khoa-hoc', '/tin-tuc', '/lien-he', '/robots.txt', '/sitemap.xml'],
