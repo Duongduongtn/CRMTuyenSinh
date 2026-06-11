@@ -5,9 +5,10 @@ import { toast } from 'vue-sonner'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
-import { CaretRight, Lock, User, Eye, EyeSlash, ShieldCheck } from '@/lib/icons'
+import { CaretRight, Lock, User, Eye, EyeSlash } from '@/lib/icons'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
+import BrandTile from '@/components/BrandTile.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
 
@@ -59,15 +60,7 @@ const onSubmit = handleSubmit(async (values) => {
       <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-brand-500/10 blur-3xl" aria-hidden="true" />
 
       <div class="relative">
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600/20 ring-1 ring-brand-400/30">
-            <ShieldCheck :size="22" weight="duotone" class="text-brand-300" />
-          </div>
-          <div>
-            <p class="text-[12px] uppercase tracking-wider text-paper/60">Hệ thống nội bộ</p>
-            <p class="text-sm font-medium text-paper">{{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM Tuyển Sinh' }}</p>
-          </div>
-        </div>
+        <BrandTile variant="dark" size="md" caption="Hệ thống nội bộ" fallback="CRM Tuyển Sinh" />
       </div>
 
       <div class="relative space-y-6 max-w-md">

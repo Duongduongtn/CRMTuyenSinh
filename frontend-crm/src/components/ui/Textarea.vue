@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 import { cn } from '@/lib/utils'
 
 defineOptions({ inheritAttrs: false })
@@ -18,7 +18,8 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const attrs = useAttrs()
 
-const inputId = computed(() => (attrs.id as string) || `txt-${Math.random().toString(36).slice(2, 8)}`)
+const generatedId = useId()
+const inputId = computed(() => (attrs.id as string) || generatedId)
 </script>
 
 <template>

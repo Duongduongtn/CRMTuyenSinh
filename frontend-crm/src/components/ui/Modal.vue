@@ -41,14 +41,17 @@ const sizeMap = {
       <DialogContent
         :class="
           cn(
-            'fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2',
+            'fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)] sm:max-h-[85vh] -translate-x-1/2 -translate-y-1/2 flex-col',
             'rounded-2xl border border-line-soft bg-paper shadow-[0_24px_48px_-12px_rgba(15,31,26,0.18)]',
             'data-[state=open]:animate-slide-up',
             sizeMap[props.size],
           )
         "
       >
-        <div v-if="title || $slots.header" class="flex items-start justify-between gap-4 border-b border-line-soft px-6 py-5">
+        <div
+          v-if="title || $slots.header"
+          class="shrink-0 flex items-start justify-between gap-4 border-b border-line-soft px-6 py-5"
+        >
           <div class="flex-1 min-w-0">
             <DialogTitle v-if="title" class="text-base font-semibold text-ink tracking-tight">{{ title }}</DialogTitle>
             <DialogDescription v-if="description" class="mt-1 text-[13px] text-ink-60">{{ description }}</DialogDescription>
@@ -61,10 +64,13 @@ const sizeMap = {
             <X :size="18" weight="regular" />
           </DialogClose>
         </div>
-        <div class="max-h-[calc(85vh-8rem)] overflow-y-auto">
+        <div class="min-h-0 flex-1 overflow-y-auto">
           <slot />
         </div>
-        <div v-if="$slots.footer" class="flex items-center justify-end gap-3 border-t border-line-soft px-6 py-4">
+        <div
+          v-if="$slots.footer"
+          class="shrink-0 flex items-center justify-end gap-3 border-t border-line-soft px-6 py-4"
+        >
           <slot name="footer" />
         </div>
       </DialogContent>

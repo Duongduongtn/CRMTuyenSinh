@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   House,
@@ -8,16 +8,26 @@ import {
   Wallet,
   FolderSimple,
   GraduationCap,
-  ShieldCheck,
   ChartBar,
+  X,
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
-import { useSiteStore } from '@/stores/site'
 import { ROLES } from '@/lib/roles'
+import { useMobileNav } from '@/composables/useMobileNav'
+import BrandTile from '@/components/BrandTile.vue'
 
 const auth = useAuthStore()
-const site = useSiteStore()
 const route = useRoute()
+const { open: navOpen, close: closeNav } = useMobileNav()
+
+// Auto đóng drawer khi đổi route, tránh user kẹt trong nav sau khi click link.
+watch(() => route.fullPath, () => closeNav())
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && navOpen.value) closeNav()
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 interface NavItem {
   to: string
@@ -51,24 +61,48 @@ function isActive(to: string): boolean {
 </script>
 
 <template>
+  <!-- Backdrop chỉ hiện khi drawer mở trên mobile, click ngoài để đóng. -->
+  <Transition
+    enter-active-class="transition-opacity duration-200 ease-out"
+    leave-active-class="transition-opacity duration-200 ease-in"
+    enter-from-class="opacity-0"
+    leave-to-class="opacity-0"
+  >
+    <div
+      v-if="navOpen"
+      class="fixed inset-0 z-30 bg-ink/40 backdrop-blur-[2px] lg:hidden"
+      aria-hidden="true"
+      @click="closeNav"
+    />
+  </Transition>
+
   <aside
-    class="hidden lg:flex w-64 shrink-0 flex-col border-r border-line-soft bg-paper sticky top-0 h-screen"
+    :class="
+      [
+        'flex w-64 shrink-0 flex-col border-r border-line-soft bg-paper h-screen',
+        'lg:sticky lg:top-0 lg:translate-x-0',
+        'fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-out-expo lg:transition-none',
+        navOpen ? 'translate-x-0 shadow-[0_18px_36px_-12px_rgba(15,31,26,0.18)]' : '-translate-x-full lg:translate-x-0 lg:shadow-none',
+      ]
+    "
+    role="navigation"
+    aria-label="Điều hướng chính"
   >
     <!-- Brand -->
     <div class="flex h-16 items-center gap-3 border-b border-line-soft px-5">
-      <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper">
-        <ShieldCheck :size="18" weight="duotone" class="text-brand-300" />
-      </div>
-      <div class="min-w-0">
-        <p class="text-[10px] uppercase tracking-wider text-ink-40 font-semibold">CRM nội bộ</p>
-        <p class="text-sm font-semibold text-ink tracking-tight truncate">
-          {{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM nội bộ' }}
-        </p>
-      </div>
+      <BrandTile class="flex-1 min-w-0" variant="paper" size="sm" caption="CRM nội bộ" fallback="CRM nội bộ" />
+      <button
+        type="button"
+        class="lg:hidden flex h-9 w-9 items-center justify-center rounded-md text-ink-40 hover:bg-paper-alt hover:text-ink transition-colors"
+        aria-label="Đóng menu"
+        @click="closeNav"
+      >
+        <X :size="18" />
+      </button>
     </div>
 
     <!-- Nav -->
-    <nav class="flex-1 overflow-y-auto px-3 py-5" aria-label="Điều hướng chính">
+    <nav class="flex-1 overflow-y-auto px-3 py-5">
       <p class="px-3 text-[10px] uppercase tracking-wider text-ink-40 font-semibold mb-2">Điều hướng</p>
       <ul class="space-y-0.5">
         <li v-for="item in visibleItems" :key="item.to">

@@ -122,6 +122,24 @@ Không dùng AI purple, beige+brass+oxblood+espresso, không gradient AI sci-fi.
 - KHÔNG italic cho heading tiếng Việt (xấu, mất dấu phụ).
 - KHÔNG block uppercase cho heading dài > 4 từ tiếng Việt.
 
+### Typography riêng cho CRM admin (compact density)
+
+CRM admin Vue 3 SPA (`frontend-crm/`) dùng **Be Vietnam Pro** + density nhỏ hơn FE public. 5 token bổ sung trong `frontend-crm/tailwind.config.ts`:
+
+| Token | Size / line-height | Letter spacing | Use case |
+|---|---|---|---|
+| `text-overline` | 10px / 14px | `+0.14em` | Section label nhỏ, badge meta (uppercase) |
+| `text-caption` | 12px / 16px | — | Hint dưới input, footer, secondary meta |
+| `text-body` | 13px / 20px | — | Nav item, table cell, body text mặc định CRM |
+| `text-headline` | 16px / 22px | `-0.01em` | Card title, modal title, section heading |
+| `text-display` | 30px / 34px | `-0.025em` | Page hero (Login wordmark, dashboard hero) |
+
+**Quy tắc áp dụng**:
+
+- **File mới**: ưu tiên dùng token (`text-body`, `text-headline`...) thay vì arbitrary `text-[13px]`.
+- **File cũ**: KHÔNG bulk replace — refactor dần khi đụng vào file cho nhu cầu khác.
+- Không phá scale Tailwind mặc định (`text-sm`, `text-base`...) — token là thêm tier riêng cho design system, không override.
+
 ---
 
 ## 3. Spacing và layout

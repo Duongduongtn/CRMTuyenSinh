@@ -11,11 +11,13 @@ import {
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
+import { useMobileNav } from '@/composables/useMobileNav'
 
 const auth = useAuthStore()
 const site = useSiteStore()
 const route = useRoute()
 const router = useRouter()
+const { toggle: toggleNav } = useMobileNav()
 
 const menuOpen = ref(false)
 
@@ -40,15 +42,17 @@ const initials = () => {
 <template>
   <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-line-soft bg-paper/80 backdrop-blur px-5 lg:px-8">
     <button
-      class="lg:hidden flex h-9 w-9 items-center justify-center rounded-md text-ink-60 hover:bg-paper-alt"
-      aria-label="Mở menu"
+      type="button"
+      class="lg:hidden flex h-9 w-9 items-center justify-center rounded-md text-ink-60 hover:bg-paper-alt hover:text-ink transition-colors"
+      aria-label="Mở menu điều hướng"
+      @click="toggleNav"
     >
       <List :size="20" />
     </button>
 
     <div class="min-w-0 flex-1">
       <p class="text-[11px] uppercase tracking-wider text-ink-40 font-semibold truncate">
-        {{ site.settings?.brand_short_name || site.settings?.brand_name || 'CRM nội bộ' }}
+        {{ site.resolveBrandName() }}
       </p>
       <p class="text-base font-semibold text-ink tracking-tight truncate" role="heading" aria-level="1">
         {{ (route.meta.title as string) || 'Tổng quan' }}

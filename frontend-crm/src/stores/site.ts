@@ -18,5 +18,11 @@ export const useSiteStore = defineStore('site', () => {
     }
   }
 
-  return { settings, loading, load }
+  // 1 nguồn brand cho mọi UI (sidebar / login / topbar / header tile).
+  // Ưu tiên short_name (vd "Thành Đạt") → name dài (vd "Trung tâm tuyển sinh Thành Đạt") → fallback.
+  function resolveBrandName(fallback = 'CRM nội bộ'): string {
+    return settings.value?.brand_short_name || settings.value?.brand_name || fallback
+  }
+
+  return { settings, loading, load, resolveBrandName }
 })

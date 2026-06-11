@@ -15,6 +15,14 @@ export default <Config>{
         sans: ['"Be Vietnam Pro"', 'system-ui', '-apple-system', '"Segoe UI"', 'sans-serif'],
         mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
+      // Design-system font sizes — ưu tiên token trước khi rơi về text-[NNpx] arbitrary.
+      fontSize: {
+        overline: ['10px', { lineHeight: '14px', letterSpacing: '0.14em' }],
+        caption: ['12px', { lineHeight: '16px' }],
+        body: ['13px', { lineHeight: '20px' }],
+        headline: ['16px', { lineHeight: '22px', letterSpacing: '-0.01em' }],
+        display: ['30px', { lineHeight: '34px', letterSpacing: '-0.025em' }],
+      },
       colors: {
         ink: {
           DEFAULT: '#0F1F1A',
