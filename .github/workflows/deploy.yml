@@ -3,6 +3,7 @@ name: Deploy CRM Tuyen Sinh
 # Trigger:
 #   - Push len main (tu dong).
 #   - Manual dispatch (chay tay khi can rollback / re-deploy).
+#   - Last re-run: nhanh T (after user removed AAAA record 2026-06-11).
 on:
   push:
     branches: [main]
