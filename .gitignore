@@ -28,6 +28,8 @@ staticfiles/
 .env.local
 .env.*.local
 .env.production
+.env.prod
+infra/.env.prod
 
 # Node (cho frontend future)
 node_modules/

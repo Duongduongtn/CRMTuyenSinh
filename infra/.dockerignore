@@ -1,0 +1,64 @@
+# Tat ca node_modules + build artifact (Dockerfile.backend khong dung FE).
+**/node_modules/
+**/dist/
+**/.nuxt/
+**/.output/
+**/.vite/
+**/.cache/
+
+# Python cache + venv local.
+**/.venv/
+**/venv/
+**/env/
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage*
+
+# SQLite + media dev (KHONG ship vao image, prod dung Postgres + volume).
+backend/db.sqlite3
+backend/db.sqlite3-journal
+backend/media/
+backend/staticfiles/
+
+# Env phai mount tu .env.prod ngoai container, KHONG bake vao image.
+backend/.env
+backend/.env.local
+backend/.env.production
+**/.env.local
+**/.env.*.local
+infra/.env.prod
+
+# Frontend (khong can cho backend image).
+frontend-public/
+frontend-student/
+frontend-crm/
+
+# Git + CI + IDE + docs.
+.git/
+.github/
+.vscode/
+.idea/
+.claude/
+docs/
+**/*.md
+!backend/README.md
+
+# Logs + OS junk.
+**/*.log
+**/logs/
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
+
+# Celery local artifacts.
+**/celerybeat-schedule
+**/celerybeat.pid
+
+# Test artifacts.
+**/test_*.json
+**/test_*.txt

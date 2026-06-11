@@ -1,0 +1,74 @@
+# syntax=docker/dockerfile:1.7
+# CRM Tuyen Sinh - backend Django + DRF + gunicorn (prod image).
+# Multi-stage: deps stage cai gcc/libpq-dev de build wheel, runtime slim khong co.
+# weasyprint can libpango/cairo/gdk-pixbuf runtime libs.
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TZ=Asia/Ho_Chi_Minh
+
+# Runtime system deps:
+# - libpango/cairo/gdk-pixbuf cho weasyprint (PDF don dang ky So GTVT).
+# - libpq5 cho psycopg.
+# - tzdata de TIME_ZONE Asia/Ho_Chi_Minh chay dung.
+# - curl cho HEALTHCHECK.
+# - fonts-noto-* cho weasyprint render tieng Viet co dau (KHONG bo qua, neu thieu PDF bi mojibake).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+        libpq5 \
+        tzdata \
+        curl \
+        fonts-noto-core fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# deps: cai requirements.txt + gunicorn vao prefix /install (de copy sang runtime).
+# ---------------------------------------------------------------------------
+FROM base AS deps
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY backend/requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt gunicorn==23.0.0
+
+# ---------------------------------------------------------------------------
+# runtime: copy site-packages + source, chay duoi user non-root.
+# ---------------------------------------------------------------------------
+FROM base AS runtime
+
+RUN useradd -m -u 1000 -s /bin/bash app
+
+WORKDIR /app
+COPY --from=deps /install /usr/local
+COPY backend/ /app/
+
+# Tao thu muc media + static persistent (bind mount tu host /var/www/thanhdat/backend-*).
+RUN mkdir -p /app/media /app/staticfiles && chown -R app:app /app
+
+USER app
+
+ENV DJANGO_SETTINGS_MODULE=config.settings.prod \
+    PORT=8000
+
+EXPOSE 8000
+
+# Healthcheck: /admin/login/ luon tra 200 ngay khi chua login (form HTML).
+# Tranh dung endpoint /api/* vi co the require auth.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8000/admin/login/ > /dev/null || exit 1
+
+# Default command: gunicorn. Compose override cho celery worker/beat.
+CMD ["gunicorn", "config.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--threads", "2", \
+     "--timeout", "60", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

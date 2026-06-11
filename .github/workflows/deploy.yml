@@ -1,0 +1,242 @@
+name: Deploy CRM Tuyen Sinh
+
+# Trigger:
+#   - Push len main (tu dong).
+#   - Manual dispatch (chay tay khi can rollback / re-deploy).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+# Khong cancel deploy dang chay - tranh deploy nua chung gay corrupt.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+
+jobs:
+  # -------------------------------------------------------------------
+  # 1. Backend test - Django test suite, fail fast.
+  # -------------------------------------------------------------------
+  backend-test:
+    name: Backend Django tests
+    runs-on: ubuntu-22.04
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: crm_test
+          POSTGRES_USER: crm_test
+          POSTGRES_PASSWORD: crm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U crm_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system deps cho weasyprint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+            fonts-noto-core
+
+      - name: Install Python deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django tests
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.dev
+          DJANGO_SECRET_KEY: ci-test-secret-key-must-be-at-least-32-chars
+          DATABASE_URL: postgres://crm_test:crm_test@localhost:5432/crm_test
+          CELERY_TASK_ALWAYS_EAGER: "True"
+        run: python manage.py test --noinput -v 2
+
+  # -------------------------------------------------------------------
+  # 2. Frontend CRM build - vue-tsc check + Vite build, upload dist artifact.
+  # -------------------------------------------------------------------
+  frontend-crm-build:
+    name: Frontend CRM build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend-crm/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: frontend-crm
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check (vue-tsc)
+        working-directory: frontend-crm
+        run: pnpm exec vue-tsc --noEmit
+
+      - name: Build (Vite production)
+        working-directory: frontend-crm
+        env:
+          VITE_API_BASE: https://sale.trungtamthanhdat.com
+        run: pnpm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-crm-dist
+          path: frontend-crm/dist/
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 3. Deploy - SSH vao VPS, pull code, rebuild backend container,
+  #    rsync FE dist len /var/www/thanhdat/frontend-crm/dist/.
+  # -------------------------------------------------------------------
+  deploy:
+    name: Deploy len VPS
+    needs: [backend-test, frontend-crm-build]
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://sale.trungtamthanhdat.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Trust VPS host key
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Download FE CRM dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-crm-dist
+          path: /tmp/frontend-crm-dist/
+
+      - name: SSH deploy backend (git pull + docker compose build/up + migrate)
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh "${VPS_USER}@${VPS_HOST}" bash -se <<'EOF'
+          set -euo pipefail
+          cd /var/www/thanhdat
+
+          # Pull code qua deploy key alias github-thanhdat (config trong /root/.ssh/config).
+          if [ ! -d .git ]; then
+            git clone --depth 1 git@github-thanhdat:Duongduongtn/CRMTuyenSinh.git .
+          else
+            git fetch origin main
+            git reset --hard origin/main
+          fi
+
+          # Tao thu muc bind mount neu chua co.
+          mkdir -p /var/www/thanhdat/backend-media /var/www/thanhdat/backend-static
+          mkdir -p /var/www/thanhdat/frontend-crm/dist
+
+          # Build backend image (cache layer requirements.txt -> rebuild nhanh khi chi doi code).
+          # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
+          cd infra
+          docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
+
+          # Migrate truoc khi swap container (giam downtime).
+          docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm backend python manage.py migrate --noinput
+
+          # Up tat ca service (recreate neu image moi).
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+
+          # Health check backend trong 30s.
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS http://127.0.0.1:8003/admin/login/ > /dev/null 2>&1; then
+              echo "Backend up OK"
+              break
+            fi
+            echo "Cho backend... ($i/6)"
+            sleep 5
+          done
+
+          # Dam bao collectstatic chay (output sang bind mount).
+          docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py collectstatic --noinput
+          EOF
+
+      - name: Rsync FE CRM dist len VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          rsync -avz --delete --no-times \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            /tmp/frontend-crm-dist/ \
+            "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-crm/dist/"
+
+      - name: Smoke test HTTPS
+        run: |
+          # Check BE health (chap nhan 200/401/403 - tat ca deu chung to BE alive).
+          BE_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            https://sale.trungtamthanhdat.com/api/site-settings/)
+          echo "BE site-settings: $BE_CODE"
+          case "$BE_CODE" in
+            200|401|403) echo "BE OK";;
+            *) echo "BE FAIL: $BE_CODE"; exit 1;;
+          esac
+
+          # Check FE serve (200 mong doi).
+          FE_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            https://sale.trungtamthanhdat.com/)
+          echo "FE /: $FE_CODE"
+          [ "$FE_CODE" = "200" ] || { echo "FE FAIL"; exit 1; }
+
+      - name: Notify Telegram (optional)
+        if: always()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
+            echo "Khong cau hinh Telegram - bo qua notify."
+            exit 0
+          fi
+          STATUS="${{ job.status }}"
+          ICON="OK"
+          [ "$STATUS" != "success" ] && ICON="FAIL"
+          MSG="[CRM Tuyen Sinh] Deploy ${ICON} - ${{ github.sha }} - ${{ github.actor }}"
+          curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TG_CHAT_ID}" \
+            -d text="${MSG}" > /dev/null || true

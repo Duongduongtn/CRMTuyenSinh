@@ -1,0 +1,141 @@
+# CRM Tuyen Sinh - compose prod cho VPS BNIX dung chung
+# (cemacosg / chinhanh / tleenailsroom / vntmedia / zalocrm da chay tren cung host).
+#
+# Tat ca service bind 127.0.0.1 only - nginx host lam reverse proxy ra ngoai.
+# Project tai /var/www/thanhdat/. Migrate + collectstatic chay trong CMD backend.
+#
+# Volume bind mount /var/www/thanhdat/backend-{media,static} de nginx host serve duoc
+# truc tiep (KHONG dung named volume vi nginx khong access /var/lib/docker/volumes/).
+#
+# Chay:
+#   cd /var/www/thanhdat/infra
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Logs:
+#   docker compose -f docker-compose.prod.yml logs -f backend
+#
+# Migrate manual (neu can):
+#   docker compose -f docker-compose.prod.yml run --rm backend python manage.py migrate
+
+name: thanhdat
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: thanhdat-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - thanhdat_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # KHONG expose ra host - chi internal network.
+    networks:
+      - thanhdat_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: thanhdat-redis
+    restart: unless-stopped
+    # AOF on de an toan du lieu Celery + cache (60s/1 write fsync).
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - thanhdat_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - thanhdat_net
+
+  backend:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backend
+    image: thanhdat-backend:latest
+    container_name: thanhdat-backend
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      # Bao dam DJANGO_SETTINGS_MODULE luon prod du .env.prod set sai.
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Bind mount de nginx host serve duoc.
+      - /var/www/thanhdat/backend-media:/app/media
+      - /var/www/thanhdat/backend-static:/app/staticfiles
+    ports:
+      # 8001/8002 da bi vntmedia/zalocrm chiem -> dung 8003 cho thanhdat.
+      - "127.0.0.1:8003:8000"
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application
+                --bind 0.0.0.0:8000
+                --workers 3
+                --threads 2
+                --timeout 60
+                --access-logfile -
+                --error-logfile -"
+    networks:
+      - thanhdat_net
+
+  celery-worker:
+    image: thanhdat-backend:latest
+    container_name: thanhdat-celery-worker
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - /var/www/thanhdat/backend-media:/app/media
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency=2"]
+    networks:
+      - thanhdat_net
+
+  celery-beat:
+    image: thanhdat-backend:latest
+    container_name: thanhdat-celery-beat
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    # Beat khong can media volume - chi schedule task.
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
+    networks:
+      - thanhdat_net
+
+volumes:
+  thanhdat_pgdata:
+    name: thanhdat_pgdata
+  thanhdat_redis:
+    name: thanhdat_redis
+
+networks:
+  thanhdat_net:
+    name: thanhdat_net
