@@ -137,8 +137,10 @@ function barWidth(amount: string): string {
     <Card v-else-if="conversionQuery.isError.value" class="py-2">
       <ErrorState
         title="Không tải được tỉ lệ chuyển đổi"
+        resource="báo cáo chuyển đổi"
         :error="conversionQuery.error.value"
-        :on-retry="() => conversionQuery.refetch()"
+        retryable
+        @retry="conversionQuery.refetch()"
       />
     </Card>
 
@@ -235,8 +237,10 @@ function barWidth(amount: string): string {
       <div v-else-if="revenueQuery.isError.value" class="py-12">
         <ErrorState
           title="Không tải được doanh thu"
+          resource="báo cáo doanh thu"
           :error="revenueQuery.error.value"
-          :on-retry="() => revenueQuery.refetch()"
+          retryable
+          @retry="revenueQuery.refetch()"
         />
       </div>
       <div v-else-if="!revenue?.rows.length" class="py-12">

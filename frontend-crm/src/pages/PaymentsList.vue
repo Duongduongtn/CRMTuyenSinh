@@ -79,8 +79,10 @@ const statusOptions = [
       <div v-else-if="isError" class="py-12">
         <ErrorState
           title="Không tải được giao dịch"
+          resource="giao dịch"
           :error="error"
-          :on-retry="() => refetch()"
+          retryable
+          @retry="refetch"
         />
       </div>
       <div v-else-if="(data?.results.length ?? 0) === 0" class="py-12">

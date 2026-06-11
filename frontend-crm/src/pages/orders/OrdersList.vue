@@ -102,8 +102,10 @@ async function printPDF(id: number, code: string, e: MouseEvent) {
       <div v-else-if="isError" class="py-12">
         <ErrorState
           title="Không tải được danh sách đơn"
+          resource="danh sách đơn"
           :error="error"
-          :on-retry="() => refetch()"
+          retryable
+          @retry="refetch"
         />
       </div>
       <div v-else-if="(data?.results.length ?? 0) === 0" class="py-12">

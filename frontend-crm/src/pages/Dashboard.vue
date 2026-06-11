@@ -169,8 +169,10 @@ function toneClasses(tone: string): string {
         <div v-else-if="recentLeads.isError.value" class="px-6">
           <ErrorState
             title="Không tải được lead gần đây"
+            resource="lead gần đây"
             :error="recentLeads.error.value"
-            :on-retry="() => recentLeads.refetch()"
+            retryable
+            @retry="recentLeads.refetch()"
           />
         </div>
         <div v-else-if="(recentLeads.data.value?.results.length ?? 0) === 0" class="px-6">
@@ -222,8 +224,10 @@ function toneClasses(tone: string): string {
         <div v-else-if="recentOrders.isError.value" class="px-6">
           <ErrorState
             title="Không tải được đơn gần đây"
+            resource="đơn gần đây"
             :error="recentOrders.error.value"
-            :on-retry="() => recentOrders.refetch()"
+            retryable
+            @retry="recentOrders.refetch()"
           />
         </div>
         <div v-else-if="(recentOrders.data.value?.results.length ?? 0) === 0" class="px-6">
