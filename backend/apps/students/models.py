@@ -1,27 +1,35 @@
 """
-App `students` — học viên đăng nhập PWA bằng SĐT + OTP (passwordless).
+App `students` — học viên đăng nhập PWA bằng SĐT + 6 số cuối CCCD.
 
 Theo memory [[person-enrollment-model]]: 3 tầng riêng biệt
-- ``StudentAccount`` (SĐT): tài khoản đăng nhập, 1 SĐT 1 account.
-- ``Person`` (CCCD): người thật theo CCCD, độc lập với SĐT.
+- ``StudentAccount`` (SĐT): tài khoản đăng nhập, 1 SĐT 1 account. Có counter
+  ``failed_login_count`` + ``locked_until`` để rate limit brute force.
+- ``Person`` (CCCD): người thật theo CCCD, độc lập với SĐT. Xác thực login bằng
+  6 số cuối ``id_number``.
 - ``AccountPersonLink``: bảng nối N-N. 1 SĐT có thể đăng ký N người (mẹ đăng ký
   hộ 2 con); 1 người có thể được nhiều SĐT khác nhau đăng ký theo thời gian.
 
 Auto-provision: khi sale chốt đơn (Enrollment created), nếu SĐT chưa có account
 thì tạo ``StudentAccount`` mới, không cần học viên thao tác.
 
-Quick view: link JWT 24h trong Zalo ZNS cho học viên xem công nợ không cần OTP.
-Xem [[student-auth-flow]].
+Quick view: văn thư CRM bấm "Tạo link xem nhanh" → BE gen JWT 24h, văn thư copy
+link gửi tay cho HV qua Zalo/SMS/gọi điện. Xem [[student-auth-flow]] đã chốt
+2026-06-11 bỏ ZNS OTP, chuyển sang SĐT + 6 số cuối CCCD.
 """
 from __future__ import annotations
 
 import re
-import secrets
 from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+
+LOCK_THRESHOLD_SHORT = 5  # fail/SĐT → khóa 15 phút
+LOCK_DURATION_SHORT = timedelta(minutes=15)
+LOCK_THRESHOLD_LONG = 10  # fail tổng/SĐT → khóa 24 giờ, văn thư mở tay
+LOCK_DURATION_LONG = timedelta(hours=24)
 
 
 def normalize_phone(raw: str) -> str:
@@ -69,6 +77,25 @@ class StudentAccount(models.Model):
         null=True,
         blank=True,
     )
+    last_login_ip = models.GenericIPAddressField(
+        _("IP đăng nhập gần nhất"),
+        null=True,
+        blank=True,
+    )
+    failed_login_count = models.PositiveSmallIntegerField(
+        _("Số lần đăng nhập sai liên tiếp"),
+        default=0,
+        help_text=_(
+            "Khóa 15 phút sau 5 lần, khóa 24 giờ sau 10 lần. Reset về 0 khi "
+            "đăng nhập thành công."
+        ),
+    )
+    locked_until = models.DateTimeField(
+        _("Tạm khóa đến"),
+        null=True,
+        blank=True,
+        help_text=_("Sau thời điểm này tài khoản có thể đăng nhập lại."),
+    )
     created_at = models.DateTimeField(_("Tạo lúc"), auto_now_add=True)
     updated_at = models.DateTimeField(_("Cập nhật"), auto_now=True)
 
@@ -76,6 +103,10 @@ class StudentAccount(models.Model):
         verbose_name = _("Tài khoản học viên")
         verbose_name_plural = _("Tài khoản học viên")
         ordering = ["-created_at"]
+        indexes = [
+            # Hỗ trợ truy vấn admin "đang khóa" + cron unlock định kỳ.
+            models.Index(fields=["locked_until"], name="sa_locked_until_idx"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.phone}{f' · {self.display_name}' if self.display_name else ''}"
@@ -84,6 +115,76 @@ class StudentAccount(models.Model):
         if self.phone:
             self.phone = normalize_phone(self.phone)
         super().save(*args, **kwargs)
+
+    def is_locked(self, now=None) -> bool:
+        """True nếu ``locked_until`` còn hiệu lực."""
+        if not self.locked_until:
+            return False
+        return (now or timezone.now()) < self.locked_until
+
+    def lock_remaining_seconds(self, now=None) -> int:
+        """Số giây còn lại của lock; 0 nếu hết hoặc chưa khóa."""
+        if not self.locked_until:
+            return 0
+        delta = self.locked_until - (now or timezone.now())
+        return max(0, int(delta.total_seconds()))
+
+    def register_login_failure(self, *, ip: str | None = None) -> None:
+        """Tăng counter + đặt lock theo mốc ngưỡng. Atomic, không phụ thuộc caller save.
+
+        Race condition fix (reviewer 2026-06-12): trước đây đọc-sửa-ghi trong
+        Python → 2 request song song cùng đọc count=4 và ghi count=5 → lọt qua
+        ngưỡng. Bây giờ dùng ``F()`` expression + ``update_fields=[...]`` để DB
+        tăng atomic, rồi reload state quyết định lock.
+
+        - Sau ``LOCK_THRESHOLD_SHORT`` (5) → khóa 15 phút.
+        - Sau mỗi mốc bội của 5 từ ``LOCK_THRESHOLD_LONG`` (10) → khóa 24 giờ.
+        """
+        from django.db.models import F
+
+        # Atomic increment + ip update qua DB.
+        StudentAccount.objects.filter(pk=self.pk).update(
+            failed_login_count=F("failed_login_count") + 1,
+            last_login_ip=ip,
+            updated_at=timezone.now(),
+        )
+        # Reload counter mới nhất từ DB để đánh giá ngưỡng.
+        self.refresh_from_db(fields=["failed_login_count", "last_login_ip", "locked_until"])
+
+        now = timezone.now()
+        count = self.failed_login_count
+        new_lock = None
+        if count >= LOCK_THRESHOLD_LONG and count % 5 == 0:
+            new_lock = now + LOCK_DURATION_LONG
+        elif count == LOCK_THRESHOLD_SHORT:
+            new_lock = now + LOCK_DURATION_SHORT
+
+        if new_lock is not None:
+            StudentAccount.objects.filter(pk=self.pk).update(
+                locked_until=new_lock,
+                updated_at=timezone.now(),
+            )
+            self.locked_until = new_lock
+
+    def register_login_success(self, *, ip: str | None = None) -> bool:
+        """Reset counter, mở khóa, cập nhật last_login. Atomic. Caller không cần save().
+
+        Trả ``True`` nếu trước đó tài khoản từng có ``locked_until`` (đã hết
+        hạn nhưng chưa clear) — phục vụ audit ``was_locked`` flag.
+        """
+        was_locked = self.locked_until is not None
+        StudentAccount.objects.filter(pk=self.pk).update(
+            failed_login_count=0,
+            locked_until=None,
+            last_login_at=timezone.now(),
+            last_login_ip=ip,
+            updated_at=timezone.now(),
+        )
+        self.failed_login_count = 0
+        self.locked_until = None
+        self.last_login_at = timezone.now()
+        self.last_login_ip = ip
+        return was_locked
 
 
 class Person(models.Model):
@@ -202,141 +303,6 @@ class AccountPersonLink(models.Model):
 
     def __str__(self) -> str:
         return f"{self.account.phone} → {self.person.full_name}"
-
-
-class OTPRequest(models.Model):
-    """Yêu cầu OTP cho login PWA.
-
-    - Code 6 số, lifetime 5 phút.
-    - Rate limit ở view: 5 request/giờ/SĐT (xem [[apps.students.views]]).
-    - Lưu hashed code để tránh dump DB lộ code.
-    """
-
-    class Purpose(models.TextChoices):
-        LOGIN = "login", _("Đăng nhập")
-        VERIFY_PHONE = "verify_phone", _("Xác minh SĐT")
-
-    class Status(models.TextChoices):
-        PENDING = "pending", _("Chờ xác thực")
-        VERIFIED = "verified", _("Đã xác thực")
-        EXPIRED = "expired", _("Hết hạn")
-        CONSUMED = "consumed", _("Đã dùng")
-
-    phone = models.CharField(_("Số điện thoại"), max_length=15, db_index=True)
-    code_hash = models.CharField(
-        _("Hash mã OTP"),
-        max_length=128,
-        help_text=_("SHA-256 hex của mã OTP gốc."),
-    )
-    purpose = models.CharField(
-        _("Mục đích"),
-        max_length=20,
-        choices=Purpose.choices,
-        default=Purpose.LOGIN,
-    )
-    status = models.CharField(
-        _("Trạng thái"),
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-    )
-    attempts = models.PositiveSmallIntegerField(
-        _("Số lần thử"),
-        default=0,
-        help_text=_("Khóa sau 5 lần nhập sai."),
-    )
-    ip_address = models.GenericIPAddressField(_("IP"), null=True, blank=True)
-    user_agent = models.CharField(_("User agent"), max_length=255, blank=True, default="")
-    expires_at = models.DateTimeField(_("Hết hạn lúc"))
-    consumed_at = models.DateTimeField(_("Đã dùng lúc"), null=True, blank=True)
-    sent_via = models.CharField(
-        _("Gửi qua"),
-        max_length=20,
-        blank=True,
-        default="",
-        help_text=_("Ví dụ: zalo_zns, sms_fallback, mock_dev."),
-    )
-    sent_meta = models.JSONField(
-        _("Metadata gửi"),
-        blank=True,
-        null=True,
-        help_text=_("Payload từ provider (Zalo ZNS response, error code)."),
-    )
-
-    created_at = models.DateTimeField(_("Tạo lúc"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("Yêu cầu OTP")
-        verbose_name_plural = _("Yêu cầu OTP")
-        ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["phone", "-created_at"]),
-            models.Index(fields=["status", "expires_at"]),
-        ]
-
-    def __str__(self) -> str:
-        return f"OTP {self.phone} · {self.get_status_display()}"
-
-    @staticmethod
-    def generate_code() -> str:
-        """Sinh OTP 6 số ngẫu nhiên (000000 đến 999999)."""
-        return f"{secrets.randbelow(1_000_000):06d}"
-
-    @staticmethod
-    def hash_code(code: str) -> str:
-        """SHA-256 hex của code thuần."""
-        import hashlib
-
-        return hashlib.sha256(code.encode("utf-8")).hexdigest()
-
-    @classmethod
-    def create_for_phone(
-        cls,
-        phone: str,
-        *,
-        purpose: str = Purpose.LOGIN,
-        ttl_minutes: int = 5,
-        ip_address: str | None = None,
-        user_agent: str = "",
-    ) -> tuple["OTPRequest", str]:
-        """Tạo OTP mới và trả về (instance, plain_code).
-
-        Plain code chỉ tồn tại trong response và log gửi — không lưu DB.
-        """
-        plain = cls.generate_code()
-        obj = cls.objects.create(
-            phone=normalize_phone(phone),
-            code_hash=cls.hash_code(plain),
-            purpose=purpose,
-            expires_at=timezone.now() + timedelta(minutes=ttl_minutes),
-            ip_address=ip_address,
-            user_agent=user_agent[:255],
-        )
-        return obj, plain
-
-    def is_expired(self) -> bool:
-        return timezone.now() >= self.expires_at
-
-    def verify(self, code: str) -> bool:
-        """Verify code, tăng attempts, mark consumed nếu đúng.
-
-        Return ``True`` nếu match + còn hạn + chưa dùng + attempts < 5.
-        Caller phải save().
-        """
-        if self.status != self.Status.PENDING:
-            return False
-        if self.is_expired():
-            self.status = self.Status.EXPIRED
-            return False
-        if self.attempts >= 5:
-            self.status = self.Status.EXPIRED
-            return False
-        self.attempts += 1
-        if self.hash_code(code) != self.code_hash:
-            return False
-        self.status = self.Status.CONSUMED
-        self.consumed_at = timezone.now()
-        return True
 
 
 class StudentDeleteRequest(models.Model):

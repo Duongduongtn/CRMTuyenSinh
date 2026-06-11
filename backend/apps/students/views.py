@@ -1,20 +1,27 @@
 """API học viên PWA.
 
+Auth chốt 2026-06-11 (xem [[student-auth-flow]]):
+- HV đăng nhập bằng SĐT + 6 số cuối CCCD/CMND đã được văn thư nhập vào ``Person``.
+- Văn thư CRM staff bấm "Tạo link xem nhanh" → BE gen JWT 24h → văn thư copy
+  link, gửi tay cho HV qua Zalo/SMS/gọi điện.
+
 Endpoints (prefix `/api/student/`):
 
-- ``POST /auth/request-otp``  — body ``{phone}`` → tạo OTP, gửi qua ZNS/mock.
-- ``POST /auth/verify-otp``   — body ``{phone, code}`` → trả ``access`` + ``refresh``.
-- ``POST /auth/refresh``      — body ``{refresh}`` → trả access mới.
-- ``GET  /me``                — thông tin tài khoản + persons link.
-- ``GET  /enrollments``       — list Enrollment của HV (theo phone match).
-- ``GET  /enrollments/<id>``  — chi tiết 1 enrollment (IDOR-safe).
-- ``PATCH /persons/<id>``     — cập nhật thông tin cá nhân person mà HV đã link.
+- ``POST /auth/login``           — body ``{phone, last6_cccd}`` → ``access`` + ``refresh``.
+- ``POST /auth/refresh``         — body ``{refresh}`` → trả access mới.
+- ``GET  /me``                   — thông tin tài khoản + persons link.
+- ``GET  /enrollments``          — list Enrollment của HV (theo phone match).
+- ``GET  /enrollments/<id>``     — chi tiết 1 enrollment (IDOR-safe).
+- ``PATCH /persons/<id>``        — cập nhật thông tin cá nhân person mà HV đã link.
+- ``POST /me/delete-request``    — HV yêu cầu xóa dữ liệu (NĐ 13/2023).
+- ``GET  /quick/<token>``        — quick view 24h (token gen bởi staff).
+- ``POST /staff/quick-token``    — văn thư CRM (staff session) gen link quick view.
 """
 from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,15 +29,16 @@ from rest_framework.views import APIView
 from apps.core.models import AuditLog
 from apps.orders.models import Enrollment
 from .auth import (
+    QUICK_TTL_SECONDS,
     TokenError,
     decode_token,
     issue_access_token,
+    issue_quick_token,
     issue_refresh_token,
 )
 from .authentication import StudentJWTAuthentication
 from .models import (
     AccountPersonLink,
-    OTPRequest,
     Person,
     StudentAccount,
     StudentDeleteRequest,
@@ -38,21 +46,20 @@ from .models import (
 from .serializers import (
     DeleteRequestSerializer,
     EnrollmentDashboardSerializer,
-    OTPRequestSerializer,
-    OTPVerifySerializer,
     PersonUpdateSerializer,
     QuickEnrollmentSerializer,
     RefreshSerializer,
+    StaffQuickTokenSerializer,
+    StudentLoginSerializer,
     StudentMeSerializer,
 )
 from .tasks import send_delete_request_telegram
 from .throttles import (
     DeleteRequestThrottle,
-    OTPRequestThrottle,
-    OTPVerifyPhoneThrottle,
-    OTPVerifyThrottle,
+    StudentLoginIPThrottle,
+    StudentLoginPhoneDayThrottle,
+    StudentLoginPhoneHourThrottle,
 )
-from .zns_adapter import ZNSError, send_otp
 
 
 def _client_ip(request) -> str | None:
@@ -62,100 +69,144 @@ def _client_ip(request) -> str | None:
     return request.META.get("REMOTE_ADDR")
 
 
+def _audit_login(*, action: str, phone: str, ip: str | None, ua: str, reason: str = "") -> None:
+    """Ghi audit log login/login_failed.
+
+    KHÔNG log 6 số cuối CCCD — tránh dump DB hoặc backup audit log để brute force
+    ngược. Chỉ ghi SĐT (mask 4 số giữa) + lý do generic.
+    """
+    masked = phone[:3] + "****" + phone[-3:] if len(phone) >= 7 else "***"
+    AuditLog.objects.create(
+        user=None,
+        action=action,
+        target_model="students.StudentAccount",
+        target_id="",
+        changes={"phone_masked": masked, "reason": reason} if reason else {"phone_masked": masked},
+        ip_address=ip,
+        user_agent=ua[:255] if ua else "",
+    )
+
+
+_DUMMY_LAST6 = "X" * 6
+_TIMING_PAD_SLOTS = 5  # số Person tối đa trung bình để pad loop, chống timing leak.
+
+
+def _verify_last6_cccd(account: StudentAccount | None, last6: str) -> bool:
+    """True nếu CCCD/CMND của Person nào đó link với account có 6 số cuối khớp.
+
+    Constant-time so sánh để chống timing attack giữa các Person.
+
+    Pad vòng lặp tới ``_TIMING_PAD_SLOTS`` (5) lần so sánh dummy để wall-time
+    không leak (a) số Person link với account, (b) tài khoản tồn tại hay không
+    (account=None vẫn chạy đủ 5 dummy compare).
+    """
+    import hmac
+
+    id_numbers: list[str] = []
+    if account is not None:
+        # 1 query gộp: lấy Person id_number qua reverse relation.
+        id_numbers = list(
+            Person.objects
+            .filter(account_links__account=account)
+            .values_list("id_number", flat=True)
+        )
+
+    matched = False
+    for slot in range(_TIMING_PAD_SLOTS):
+        if slot < len(id_numbers):
+            raw = (id_numbers[slot] or "").strip()
+            # rjust pad để mọi nhánh đều có 6 ký tự — KHÔNG dùng ``continue``.
+            candidate = raw[-6:] if len(raw) >= 6 else raw.rjust(6, "X")
+        else:
+            candidate = _DUMMY_LAST6
+        if hmac.compare_digest(candidate, last6):
+            matched = True
+    return matched
+
+
+# ---- Auth endpoints ----
+
+
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
-@throttle_classes([OTPRequestThrottle])
-def request_otp(request):
-    """Tạo OTP và gửi qua ZNS (hoặc mock dev).
+@throttle_classes([
+    StudentLoginPhoneHourThrottle,
+    StudentLoginPhoneDayThrottle,
+    StudentLoginIPThrottle,
+])
+def login(request):
+    """Đăng nhập học viên — SĐT + 6 số cuối CCCD (chốt 2026-06-11).
 
-    Response luôn 200 thành công, không leak thông tin "SĐT này có tồn tại trong
-    hệ thống không" để chống user enumeration. Tạo mới account nếu chưa có —
-    cũng giúp HV tự đăng ký lần đầu nếu sale chưa nhập kịp (mặc dù flow chính
-    là sale chốt đơn trước, HV login sau).
+    Generic 401 "Sai SĐT hoặc CCCD" cho mọi trường hợp fail để chống enumeration
+    (account không tồn tại, account inactive, không có Person link, CCCD sai).
 
-    Invalidate mọi OTP ``pending`` cũ cho cùng SĐT trước khi tạo OTP mới —
-    chống abuse "tạo nhiều OTP song song để tăng cơ hội brute-force".
+    Pass điều kiện:
+    1. Tài khoản tồn tại + ``is_active=True``.
+    2. ``StudentAccount`` không trong lock (locked_until <= now).
+    3. Có ít nhất 1 ``Person`` link với account có ``id_number[-6:]`` khớp.
+
+    Lock state (handled trong ``register_login_failure`` ở model):
+    - 5 fail liên tiếp → khóa 15 phút.
+    - 10+ fail tổng → khóa 24 giờ (văn thư tự mở khi HV gọi điện chứng minh).
     """
-    ser = OTPRequestSerializer(data=request.data)
+    ser = StudentLoginSerializer(data=request.data)
     ser.is_valid(raise_exception=True)
     phone = ser.validated_data["phone"]
+    last6 = ser.validated_data["last6_cccd"]
+    ip = _client_ip(request)
+    ua = request.META.get("HTTP_USER_AGENT", "")
 
-    # Invalidate OTP cũ pending cho cùng SĐT
-    OTPRequest.objects.filter(
-        phone=phone, status=OTPRequest.Status.PENDING
-    ).update(status=OTPRequest.Status.EXPIRED)
+    account = StudentAccount.objects.filter(phone=phone).first()
 
-    otp, plain_code = OTPRequest.create_for_phone(
-        phone,
-        ip_address=_client_ip(request),
-        user_agent=request.META.get("HTTP_USER_AGENT", ""),
-    )
-    try:
-        result = send_otp(phone, plain_code)
-    except ZNSError as exc:
-        # Mark OTP đã tạo là expired vì gửi thất bại
-        otp.status = OTPRequest.Status.EXPIRED
-        otp.sent_via = "zns_unconfigured"
-        otp.sent_meta = {"error": str(exc)}
-        otp.save(update_fields=["status", "sent_via", "sent_meta"])
+    # Locked → 423 + thông báo thời gian còn lại.
+    if account and account.is_locked():
+        _audit_login(action=AuditLog.Action.LOGIN_FAILED, phone=phone, ip=ip, ua=ua, reason="locked")
         return Response(
-            {"detail": str(exc)},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    otp.sent_via = result["sent_via"]
-    otp.sent_meta = result["meta"]
-    otp.save(update_fields=["sent_via", "sent_meta"])
-
-    return Response(
-        {
-            "detail": "Đã gửi OTP. Vui lòng kiểm tra Zalo trong vòng 5 phút.",
-            "expires_in_seconds": 300,
-        },
-        status=status.HTTP_200_OK,
-    )
-
-
-@api_view(["POST"])
-@permission_classes([permissions.AllowAny])
-@throttle_classes([OTPVerifyThrottle, OTPVerifyPhoneThrottle])
-def verify_otp(request):
-    """Xác thực OTP → cấp access + refresh JWT.
-
-    Nếu SĐT chưa có account → auto-provision (theo memory [[student-auth-flow]]).
-    """
-    ser = OTPVerifySerializer(data=request.data)
-    ser.is_valid(raise_exception=True)
-    phone = ser.validated_data["phone"]
-    code = ser.validated_data["code"]
-
-    otp = (
-        OTPRequest.objects
-        .filter(phone=phone, status=OTPRequest.Status.PENDING)
-        .order_by("-created_at")
-        .first()
-    )
-    if not otp:
-        return Response(
-            {"detail": "Không tìm thấy mã OTP còn hiệu lực. Gửi lại mã mới."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {
+                "detail": (
+                    "Tài khoản đang tạm khóa do nhập sai quá nhiều lần. "
+                    "Vui lòng thử lại sau."
+                ),
+                "code": "account_locked",
+                "remaining_seconds": account.lock_remaining_seconds(),
+            },
+            status=status.HTTP_423_LOCKED,
         )
 
-    ok = otp.verify(code)
-    otp.save(update_fields=["status", "attempts", "consumed_at"])
-    if not ok:
+    # Verify CCCD CHẠY KỂ CẢ KHI account is None — chống timing enumeration
+    # (path "không tồn tại" và "tồn tại + sai CCCD" tốn thời gian xấp xỉ nhau).
+    cccd_ok = _verify_last6_cccd(account, last6)
+    success = (
+        account is not None
+        and account.is_active
+        and cccd_ok
+    )
+
+    if not success:
+        # KHÔNG leak lý do cụ thể. Nếu có account → tăng counter atomic + có thể khóa.
+        if account is not None:
+            account.register_login_failure(ip=ip)
+        _audit_login(action=AuditLog.Action.LOGIN_FAILED, phone=phone, ip=ip, ua=ua)
         return Response(
-            {"detail": "Mã OTP không đúng hoặc đã hết hạn."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {
+                "detail": (
+                    "Sai số điện thoại hoặc 6 số cuối CCCD. Vui lòng kiểm tra "
+                    "lại hoặc liên hệ trung tâm để được hỗ trợ."
+                ),
+                "code": "invalid_credentials",
+            },
+            status=status.HTTP_401_UNAUTHORIZED,
         )
 
-    account, created = StudentAccount.objects.get_or_create(phone=phone)
-    account.last_login_at = timezone.now()
-    if created and not account.display_name:
-        # Nếu có Enrollment với SĐT này, lấy student_name làm display
-        enr = Enrollment.objects.filter(student_phone=phone).order_by("-created_at").first()
-        if enr:
-            account.display_name = enr.student_name
-    account.save(update_fields=["last_login_at", "display_name"])
+    # Pass — reset counter, cấp token.
+    was_locked = account.register_login_success(ip=ip)
+    _audit_login(
+        action=AuditLog.Action.LOGIN,
+        phone=phone,
+        ip=ip,
+        ua=ua,
+        reason="was_locked" if was_locked else "",
+    )
 
     return Response({
         "access": issue_access_token(account.pk, account.phone),
@@ -164,7 +215,6 @@ def verify_otp(request):
             "id": account.pk,
             "phone": account.phone,
             "display_name": account.display_name,
-            "is_new": created,
         },
     })
 
@@ -230,7 +280,7 @@ class EnrollmentDetailView(StudentAuthMixin, generics.RetrieveAPIView):
 
 
 class QuickEnrollmentView(APIView):
-    """GET /api/student/quick/<token> — quick view 24h từ link Zalo ZNS.
+    """GET /api/student/quick/<token> — quick view 24h từ link văn thư gửi tay.
 
     Theo memory [[student-auth-flow]]:
     - Token type = ``quick``, TTL 24h, scope cứng ``enrollment`` ID.
@@ -280,7 +330,10 @@ class QuickEnrollmentView(APIView):
             # Token hợp lệ nhưng đơn không còn match → IDOR-safe trả 410.
             return Response(
                 {
-                    "detail": "Liên kết không còn dùng được. Vui lòng đăng nhập lại bằng SĐT.",
+                    "detail": (
+                        "Liên kết không còn dùng được. Vui lòng đăng nhập "
+                        "bằng số điện thoại."
+                    ),
                     "code": "enrollment_unavailable",
                 },
                 status=status.HTTP_410_GONE,
@@ -324,6 +377,114 @@ class QuickEnrollmentView(APIView):
         })
 
 
+class StaffQuickTokenView(APIView):
+    """POST /api/student/staff/quick-token — văn thư CRM gen link xem nhanh 24h.
+
+    Yêu cầu Django session auth + user staff (văn thư/sale/admin). Permission
+    ``students.add_studentaccount`` đã được gán cho group Văn thư trong
+    ``bootstrap_data`` — tận dụng làm cờ "có quyền hỗ trợ HV". Không cần permission
+    riêng, tránh phình bảng auth_permission.
+
+    Body: ``{enrollment_id}``. Verify Enrollment + tồn tại StudentAccount cho
+    SĐT của đơn (auto-provision lúc convert lead → enrollment đã đảm bảo điều
+    kiện này). Trả URL đầy đủ để văn thư copy gửi tay.
+    """
+
+    # Session auth (Django default) — văn thư đăng nhập admin CRM trước.
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    # Group được phép gen link xem nhanh. Bootstrap_data tạo sẵn 4 group:
+    # van_thu, sale, ke_toan, admin (xem [[crm-roles-flexible]]). Văn thư + admin
+    # là 2 vai trò trực tiếp hỗ trợ HV; sale chỉ chốt đơn, kế toán chỉ đối soát
+    # → không cần gen link xem công nợ.
+    ALLOWED_GROUPS = ("van_thu", "admin")
+
+    def post(self, request):
+        user = request.user
+        if not user.is_authenticated or not user.is_staff:
+            return Response(
+                {"detail": "Chỉ nhân viên trung tâm mới gen được link xem nhanh."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not (
+            user.is_superuser
+            or user.groups.filter(name__in=self.ALLOWED_GROUPS).exists()
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "Chức năng này dành cho văn thư hoặc quản trị viên. "
+                        "Vui lòng liên hệ admin để được cấp quyền."
+                    ),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        ser = StaffQuickTokenSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        enrollment_id = ser.validated_data["enrollment_id"]
+
+        enrollment = (
+            Enrollment.objects
+            .filter(pk=enrollment_id)
+            .select_related("course")
+            .first()
+        )
+        if not enrollment:
+            return Response(
+                {"detail": "Không tìm thấy đơn ghi danh.", "code": "enrollment_not_found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        phone = enrollment.student_phone or ""
+        if not phone:
+            return Response(
+                {
+                    "detail": "Đơn chưa có số điện thoại học viên, không thể tạo link.",
+                    "code": "missing_phone",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        account = StudentAccount.objects.filter(phone=phone, is_active=True).first()
+        if not account:
+            return Response(
+                {
+                    "detail": (
+                        "Tài khoản học viên chưa được tạo hoặc đã bị khóa. "
+                        "Vui lòng kiểm tra trong CRM."
+                    ),
+                    "code": "account_missing",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        token = issue_quick_token(account.pk, account.phone, enrollment.pk)
+
+        from django.conf import settings as dj_settings
+
+        student_url = dj_settings.SITE_STUDENT_URL.rstrip("/")
+        url = f"{student_url}/quick/{token}"
+
+        masked_phone = phone[:3] + "****" + phone[-3:] if len(phone) >= 7 else "***"
+        AuditLog.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            action=AuditLog.Action.CREATE,
+            target_model="students.QuickToken",
+            target_id=str(enrollment.pk),
+            changes={"phone_masked": masked_phone, "ttl_seconds": QUICK_TTL_SECONDS},
+            ip_address=_client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+        )
+
+        return Response({
+            "url": url,
+            "expires_in_seconds": QUICK_TTL_SECONDS,
+            "enrollment_code": enrollment.code,
+        })
+
+
 class DeleteRequestView(StudentAuthMixin, APIView):
     """POST /api/student/me/delete-request — HV yêu cầu xóa dữ liệu (NĐ 13/2023).
 
@@ -356,7 +517,7 @@ class DeleteRequestView(StudentAuthMixin, APIView):
                 {
                     "detail": (
                         "Yêu cầu xóa dữ liệu đã được tiếp nhận. Trung tâm sẽ "
-                        "phản hồi qua Zalo trong vòng 72 giờ."
+                        "phản hồi trong vòng 72 giờ."
                     ),
                     "request_id": existing.id,
                     "status": existing.status,

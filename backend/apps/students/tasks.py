@@ -104,6 +104,7 @@ def send_delete_request_telegram(self, request_id: int):
         "",
         "Cần xử lý thủ công: đối soát công nợ, hồ sơ đã nộp Sở GTVT.",
         f"Mở CRM: {settings.SITE_CRM_URL}/admin/students/studentdeleterequest/{req.id}/change/",
+        "Liên hệ HV qua kênh đã đăng ký (Zalo tay/SMS tay/gọi điện) để xác minh.",
     ]
     text = "\n".join(line for line in lines if line is not None)
 

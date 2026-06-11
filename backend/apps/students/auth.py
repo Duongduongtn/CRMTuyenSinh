@@ -1,12 +1,14 @@
-"""JWT token cho học viên — passwordless.
+"""JWT token cho học viên — auth = SĐT + 6 số cuối CCCD (chốt 2026-06-11).
 
 Dùng HMAC-SHA256 trên SECRET_KEY Django, payload nhỏ, không phụ thuộc lib bên ngoài
-(PyJWT) để giữ Sprint 2 nhẹ. Khi cần refresh token rotation phức tạp hơn có thể
-chuyển sang ``djangorestframework-simplejwt`` sau.
+(PyJWT). Khi cần refresh token rotation phức tạp hơn có thể chuyển sang
+``djangorestframework-simplejwt`` sau.
 
 - ``access`` token: 15 phút.
-- ``refresh`` token: 30 ngày.
-- ``quick`` token: 24 giờ (cho link Zalo ZNS, chỉ xem được 1 enrollment cụ thể).
+- ``refresh`` token: 7 ngày (giảm từ 30 ngày để bù entropy 6 số cuối CCCD thấp
+  hơn OTP 6 số, theo [[student-auth-flow]]).
+- ``quick`` token: 24 giờ — văn thư CRM gen + copy link gửi tay cho HV (Zalo
+  tay/SMS tay/gọi điện). Scope cứng 1 enrollment, read-only.
 
 Payload:
 ```
@@ -36,7 +38,7 @@ from django.conf import settings
 
 
 ACCESS_TTL_SECONDS = 15 * 60
-REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60
+REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60
 QUICK_TTL_SECONDS = 24 * 60 * 60
 
 
@@ -90,7 +92,7 @@ def issue_refresh_token(account_id: int, phone: str) -> str:
 
 
 def issue_quick_token(account_id: int, phone: str, enrollment_id: int) -> str:
-    """Link xem nhanh 24h gửi qua Zalo ZNS. Chỉ scoped vào 1 enrollment."""
+    """Link xem nhanh 24h — văn thư CRM gen + copy gửi tay. Scope 1 enrollment."""
     now = int(time.time())
     return _make_token({
         "sub": account_id,

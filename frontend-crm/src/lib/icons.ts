@@ -52,4 +52,7 @@ export {
   PhInfo as Info,
   PhCheck as Check,
   PhWarning as Warning,
+  PhLink as Link,
+  PhCopy as Copy,
+  PhClockCountdown as ClockCountdown,
 } from '@phosphor-icons/vue'

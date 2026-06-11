@@ -97,9 +97,6 @@ if not FERNET_SECRET or FERNET_SECRET.startswith("dev-"):  # noqa: F405
         "rồi paste vào .env.prod. Xem docs/08-integration-credentials.md §2."
     )
 
-# === ZNS phải cấu hình ===
-ZNS_ALLOW_MOCK = False  # chặn cứng mock log OTP ra console
-
 # === Upload limits ===
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 200  # chống DoS multipart spam field
 

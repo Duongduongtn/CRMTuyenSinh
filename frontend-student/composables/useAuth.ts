@@ -1,5 +1,8 @@
-// Auth composable — JWT access + refresh stored trong localStorage.
-// Refresh tự động khi access hết hạn (15p).
+// Auth composable — JWT access (15p) + refresh (7 ngày) qua localStorage.
+// Refresh tự động khi access hết hạn.
+//
+// Sprint 3 Tuần 7 gói B (2026-06-12): bỏ OTP ZNS, login = SĐT + 6 số cuối
+// CCCD (xem memory student-auth-flow).
 
 const STORAGE_ACCESS = 'crm_student_access'
 const STORAGE_REFRESH = 'crm_student_refresh'
@@ -9,7 +12,17 @@ export interface StudentAccount {
   id: number
   phone: string
   display_name: string
-  is_new?: boolean
+}
+
+export interface LoginLockedError {
+  code: 'account_locked'
+  remaining_seconds: number
+  detail: string
+}
+
+export interface LoginInvalidError {
+  code: 'invalid_credentials'
+  detail: string
 }
 
 const accountState = ref<StudentAccount | null>(null)
@@ -55,21 +68,14 @@ export const useAuth = () => {
     hydrate()
   }
 
-  const requestOtp = async (phone: string) => {
-    return await $fetch<{ detail: string; expires_in_seconds: number }>(
-      `${apiBase}/student/auth/request-otp`,
-      { method: 'POST', body: { phone } },
-    )
-  }
-
-  const verifyOtp = async (phone: string, code: string) => {
+  const login = async (phone: string, last6Cccd: string) => {
     const resp = await $fetch<{
       access: string
       refresh: string
       account: StudentAccount
-    }>(`${apiBase}/student/auth/verify-otp`, {
+    }>(`${apiBase}/student/auth/login`, {
       method: 'POST',
-      body: { phone, code },
+      body: { phone, last6_cccd: last6Cccd },
     })
     persist(resp.access, resp.refresh, resp.account)
     return resp
@@ -102,8 +108,7 @@ export const useAuth = () => {
     account: readonly(accountState),
     accessToken: readonly(accessToken),
     isAuthenticated,
-    requestOtp,
-    verifyOtp,
+    login,
     refreshAccess,
     logout,
     hydrate,

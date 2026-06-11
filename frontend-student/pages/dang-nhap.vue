@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { PhArrowLeft, PhArrowRight, PhGraduationCap, PhShieldCheck, PhSpinnerGap } from '@phosphor-icons/vue'
+import { PhArrowRight, PhGraduationCap, PhIdentificationCard, PhPhoneCall, PhShieldCheck, PhSpinnerGap } from '@phosphor-icons/vue'
 
 definePageMeta({ layout: false })
 
-const { requestOtp, verifyOtp, isAuthenticated } = useAuth()
+const { login, isAuthenticated } = useAuth()
 const route = useRoute()
 
 onMounted(() => {
@@ -16,30 +16,28 @@ const getNextPath = () => {
   return '/dashboard'
 }
 
-type Step = 'phone' | 'otp'
-const step = ref<Step>('phone')
-
 const phone = ref('')
-const otp = ref('')
+const last6 = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
-const countdown = ref(0)
+const lockSeconds = ref(0)
 
-let timerId: ReturnType<typeof setInterval> | null = null
-const startCountdown = (secs: number) => {
-  countdown.value = secs
-  if (timerId) clearInterval(timerId)
-  timerId = setInterval(() => {
-    countdown.value -= 1
-    if (countdown.value <= 0 && timerId) {
-      clearInterval(timerId)
-      timerId = null
+let lockTimerId: ReturnType<typeof setInterval> | null = null
+
+const startLockCountdown = (secs: number) => {
+  lockSeconds.value = secs
+  if (lockTimerId) clearInterval(lockTimerId)
+  lockTimerId = setInterval(() => {
+    lockSeconds.value -= 1
+    if (lockSeconds.value <= 0 && lockTimerId) {
+      clearInterval(lockTimerId)
+      lockTimerId = null
     }
   }, 1000)
 }
 
 onBeforeUnmount(() => {
-  if (timerId) clearInterval(timerId)
+  if (lockTimerId) clearInterval(lockTimerId)
 })
 
 const normalizePhoneLocal = (raw: string): string => {
@@ -50,166 +48,168 @@ const normalizePhoneLocal = (raw: string): string => {
 }
 
 const isValidPhone = computed(() => /^0\d{9}$/.test(normalizePhoneLocal(phone.value)))
-const isValidOtp = computed(() => /^\d{6}$/.test(otp.value))
+const isValidLast6 = computed(() => /^\d{6}$/.test(last6.value))
+const isLocked = computed(() => lockSeconds.value > 0)
+const canSubmit = computed(() => isValidPhone.value && isValidLast6.value && !isLocked.value)
 
-const submitPhone = async () => {
+const lockCountdownLabel = computed(() => {
+  const s = lockSeconds.value
+  if (s <= 0) return ''
+  if (s >= 3600) {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    return `${h} giờ ${m.toString().padStart(2, '0')} phút`
+  }
+  if (s >= 60) {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m} phút ${sec.toString().padStart(2, '0')} giây`
+  }
+  return `${s} giây`
+})
+
+const handleLast6Input = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  last6.value = target.value.replace(/\D/g, '').slice(0, 6)
+}
+
+const submit = async () => {
   errorMsg.value = ''
   if (!isValidPhone.value) {
-    errorMsg.value = 'Số điện thoại không hợp lệ. Định dạng đúng: 10 số, bắt đầu bằng 0.'
+    errorMsg.value = 'Số điện thoại không hợp lệ. Vui lòng nhập 10 số, bắt đầu bằng 0.'
     return
   }
-  loading.value = true
-  try {
-    const resp = await requestOtp(normalizePhoneLocal(phone.value))
-    step.value = 'otp'
-    startCountdown(resp.expires_in_seconds || 300)
-    nextTick(() => {
-      const el = document.getElementById('otp-input')
-      el?.focus()
-    })
-  } catch (err: any) {
-    errorMsg.value = parseError(err) || 'Không gửi được mã. Vui lòng thử lại.'
-  } finally {
-    loading.value = false
+  if (!isValidLast6.value) {
+    errorMsg.value = 'Vui lòng nhập đủ 6 số cuối CCCD.'
+    return
   }
-}
 
-const submitOtp = async () => {
-  errorMsg.value = ''
-  if (!isValidOtp.value) {
-    errorMsg.value = 'Vui lòng nhập đủ 6 chữ số.'
-    return
-  }
   loading.value = true
   try {
-    await verifyOtp(normalizePhoneLocal(phone.value), otp.value)
+    await login(normalizePhoneLocal(phone.value), last6.value)
     navigateTo(getNextPath())
-  } catch (err: any) {
-    errorMsg.value = parseError(err) || 'Mã không đúng hoặc đã hết hạn.'
-  } finally {
+  }
+  catch (err: any) {
+    const data = err?.response?._data || err?.data
+    const status = err?.response?.status
+    if (status === 423 && data?.remaining_seconds) {
+      startLockCountdown(data.remaining_seconds)
+      errorMsg.value = data.detail || 'Tài khoản đang tạm khóa. Vui lòng thử lại sau.'
+    }
+    else if (status === 429) {
+      errorMsg.value = 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc rồi đăng nhập lại.'
+    }
+    else if (data?.detail) {
+      errorMsg.value = data.detail
+    }
+    else {
+      errorMsg.value = 'Đăng nhập không thành công. Vui lòng kiểm tra mạng và thử lại.'
+    }
+  }
+  finally {
     loading.value = false
   }
-}
-
-const parseError = (err: any): string => {
-  const data = err?.response?._data || err?.data
-  if (data?.detail) return data.detail
-  if (data?.phone?.[0]) return data.phone[0]
-  if (data?.code?.[0]) return data.code[0]
-  return ''
-}
-
-const goBack = () => {
-  step.value = 'phone'
-  otp.value = ''
-  errorMsg.value = ''
-}
-
-const resendOtp = async () => {
-  if (countdown.value > 240) return
-  await submitPhone()
 }
 
 useHead({
-  title: 'Đăng nhập · Học viên',
+  title: 'Đăng nhập học viên',
+  meta: [
+    { name: 'description', content: 'Đăng nhập khu vực học viên bằng số điện thoại và 6 số cuối CCCD đã đăng ký.' },
+  ],
 })
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col bg-paper">
-    <div class="flex-1 flex items-center justify-center px-4 py-8">
+    <div class="flex-1 flex items-center justify-center px-4 py-10">
       <div class="w-full max-w-narrow">
         <div class="text-center mb-8">
           <div class="inline-flex size-14 bg-brand-700 text-white rounded-xl items-center justify-center mb-4">
             <PhGraduationCap class="size-7" weight="bold" />
           </div>
-          <h1 class="text-2xl font-bold tracking-tight">Đăng nhập học viên</h1>
+          <h1 class="text-2xl font-bold tracking-tight">
+            Đăng nhập học viên
+          </h1>
           <p class="text-ink-60 mt-2 text-sm leading-relaxed">
-            Đăng nhập bằng số điện thoại đã đăng ký khóa học.
-            <br>Không cần mật khẩu.
+            Đăng nhập bằng số điện thoại đã đăng ký khóa học và 6 số cuối CCCD.
           </p>
         </div>
 
         <div class="card-base">
-          <form v-if="step === 'phone'" @submit.prevent="submitPhone">
-            <label for="phone" class="block text-sm font-semibold mb-2">Số điện thoại</label>
-            <input
-              id="phone"
-              v-model="phone"
-              type="tel"
-              inputmode="tel"
-              autocomplete="tel"
-              class="input-base num-display"
-              placeholder="0903456789"
-              maxlength="15"
-              :disabled="loading"
-              autofocus
-            >
-            <p v-if="errorMsg" class="mt-2 text-sm text-danger">{{ errorMsg }}</p>
-            <button
-              type="submit"
-              class="btn-primary w-full mt-4"
-              :disabled="loading || !isValidPhone"
-            >
-              <PhSpinnerGap v-if="loading" class="size-5 animate-spin" />
-              <span v-else>Gửi mã xác thực</span>
-              <PhArrowRight v-if="!loading" class="size-5" />
-            </button>
-          </form>
+          <form @submit.prevent="submit">
+            <label for="phone" class="block text-sm font-semibold mb-2">
+              Số điện thoại
+            </label>
+            <div class="relative">
+              <PhPhoneCall class="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-ink-40" />
+              <input
+                id="phone"
+                v-model="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                class="input-base num-display pl-10"
+                placeholder="0903456789"
+                maxlength="15"
+                :disabled="loading || isLocked"
+                autofocus
+              >
+            </div>
 
-          <form v-else @submit.prevent="submitOtp">
-            <button
-              type="button"
-              class="text-ink-60 hover:text-ink text-sm inline-flex items-center gap-1 mb-3"
-              @click="goBack"
-            >
-              <PhArrowLeft class="size-4" />
-              Đổi số điện thoại
-            </button>
-            <label for="otp-input" class="block text-sm font-semibold mb-2">Mã xác thực</label>
-            <p class="text-xs text-ink-60 mb-3">
-              Đã gửi mã 6 số tới Zalo của
-              <span class="font-semibold text-ink num-display">{{ normalizePhoneLocal(phone) }}</span>.
-              <span v-if="countdown > 0">Hết hạn sau <span class="num-display">{{ Math.floor(countdown / 60) }}:{{ String(countdown % 60).padStart(2, '0') }}</span>.</span>
+            <label for="last6" class="block text-sm font-semibold mt-5 mb-2">
+              6 số cuối CCCD
+            </label>
+            <div class="relative">
+              <PhIdentificationCard class="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-ink-40" />
+              <input
+                id="last6"
+                :value="last6"
+                type="text"
+                inputmode="numeric"
+                autocomplete="off"
+                class="input-base num-display px-10 text-xl tracking-[0.4em] font-bold text-center"
+                placeholder=""
+                maxlength="6"
+                pattern="\d{6}"
+                :disabled="loading || isLocked"
+                @input="handleLast6Input"
+              >
+            </div>
+            <p class="mt-2 text-xs text-ink-60 leading-relaxed">
+              Lấy 6 số cuối trên thẻ căn cước công dân hoặc CMND đã nộp cho trung tâm.
             </p>
-            <input
-              id="otp-input"
-              v-model="otp"
-              type="text"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              class="input-base num-display text-center text-2xl tracking-[0.4em] font-bold"
-              placeholder="------"
-              maxlength="6"
-              pattern="\d{6}"
-              :disabled="loading"
+
+            <div
+              v-if="errorMsg"
+              class="mt-4 px-3 py-2 rounded-md text-sm text-danger bg-danger-soft border border-danger/10"
+              role="alert"
             >
-            <p v-if="errorMsg" class="mt-2 text-sm text-danger">{{ errorMsg }}</p>
+              {{ errorMsg }}
+              <div v-if="isLocked" class="mt-1 text-xs text-danger/80 num-display">
+                Mở lại sau {{ lockCountdownLabel }}.
+              </div>
+            </div>
+
             <button
               type="submit"
-              class="btn-primary w-full mt-4"
-              :disabled="loading || !isValidOtp"
+              class="btn-primary w-full mt-5"
+              :disabled="loading || !canSubmit"
             >
               <PhSpinnerGap v-if="loading" class="size-5 animate-spin" />
-              <span v-else>Xác nhận đăng nhập</span>
-            </button>
-            <button
-              type="button"
-              class="block w-full mt-3 text-sm text-ink-60 hover:text-brand-700 transition py-2"
-              :disabled="loading || countdown > 240"
-              @click="resendOtp"
-            >
-              <span v-if="countdown > 240">
-                Gửi lại mã sau <span class="num-display">{{ countdown - 240 }}s</span>
-              </span>
-              <span v-else>Gửi lại mã</span>
+              <span v-else>Đăng nhập</span>
+              <PhArrowRight v-if="!loading" class="size-5" />
             </button>
           </form>
         </div>
 
-        <div class="mt-6 flex items-center justify-center gap-2 text-xs text-ink-60">
-          <PhShieldCheck class="size-4 text-brand-700" />
-          Bảo mật bằng OTP · không lưu mật khẩu
+        <div class="mt-6 flex flex-col items-center gap-3 text-xs text-ink-60">
+          <div class="flex items-center gap-2">
+            <PhShieldCheck class="size-4 text-brand-700" />
+            Bảo mật bằng định danh SĐT và CCCD
+          </div>
+          <p class="text-center leading-relaxed">
+            Chưa đăng nhập được? Vui lòng liên hệ trung tâm để cập nhật CCCD trong hồ sơ.
+          </p>
         </div>
       </div>
     </div>

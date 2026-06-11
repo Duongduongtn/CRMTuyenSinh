@@ -1,4 +1,4 @@
-"""DRF serializers cho học viên — login OTP + dashboard."""
+"""DRF serializers cho học viên — login SĐT + 6 số cuối CCCD + dashboard."""
 from __future__ import annotations
 
 import re
@@ -24,19 +24,31 @@ class PhoneField(serializers.CharField):
         return normalized
 
 
-class OTPRequestSerializer(serializers.Serializer):
-    phone = PhoneField(max_length=15)
+class StudentLoginSerializer(serializers.Serializer):
+    """Body cho POST /api/student/auth/login.
 
+    ``last6_cccd`` là 6 chữ số cuối CCCD/CMND đã được văn thư nhập vào ``Person``
+    của tài khoản. Đây KHÔNG phải mật khẩu — entropy thấp nhưng đủ với rate
+    limit cứng (xem [[student-auth-flow]]).
+    """
 
-class OTPVerifySerializer(serializers.Serializer):
     phone = PhoneField(max_length=15)
-    code = serializers.RegexField(r"^\d{6}$", error_messages={
-        "invalid": "Mã OTP gồm đúng 6 chữ số.",
-    })
+    last6_cccd = serializers.RegexField(
+        r"^\d{6}$",
+        error_messages={
+            "invalid": "Vui lòng nhập đúng 6 chữ số cuối CCCD/CMND.",
+        },
+    )
 
 
 class RefreshSerializer(serializers.Serializer):
     refresh = serializers.CharField()
+
+
+class StaffQuickTokenSerializer(serializers.Serializer):
+    """Body cho POST /api/student/staff/quick-token — văn thư CRM gen link 24h."""
+
+    enrollment_id = serializers.IntegerField(min_value=1)
 
 
 class PersonShortSerializer(serializers.ModelSerializer):

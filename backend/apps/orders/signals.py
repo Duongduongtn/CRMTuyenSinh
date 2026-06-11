@@ -1,7 +1,10 @@
 """Signal handlers cho app orders.
 
-Trigger Zalo ZNS + Telegram alert KHI mới tạo enrollment, KHÔNG khi update.
-Async qua Celery để không block API response. Lỗi gửi tin nhắn KHÔNG rollback đơn.
+Trigger Telegram alert KHI mới tạo enrollment, KHÔNG khi update. Async qua
+Celery để không block API response. Lỗi gửi tin nhắn KHÔNG rollback đơn.
+
+Sprint 3 Tuần 7 (2026-06-12): gỡ bỏ trigger ``send_deposit_zns_link`` (ZNS Zalo
+đã rời MVP). Văn thư tự gen "link xem nhanh" qua CRM staff endpoint và gửi tay.
 """
 import logging
 
@@ -16,9 +19,9 @@ logger = logging.getLogger("apps.orders")
 
 @receiver(post_save, sender=Enrollment)
 def notify_on_new_enrollment(sender, instance: Enrollment, created: bool, **kwargs):
-    """Gửi ZNS + Telegram khi enrollment vừa được tạo.
+    """Gửi Telegram khi enrollment vừa được tạo.
 
-    Dùng `on_commit` để task chỉ chạy sau khi transaction convert hoàn tất —
+    Dùng ``on_commit`` để task chỉ chạy sau khi transaction convert hoàn tất —
     tránh trường hợp task chạy quá sớm và đọc state cũ.
     """
     if not created:
@@ -28,9 +31,8 @@ def notify_on_new_enrollment(sender, instance: Enrollment, created: bool, **kwar
 
     def _trigger():
         try:
-            from .tasks import send_deposit_zns_link, send_new_order_telegram
+            from .tasks import send_new_order_telegram
 
-            send_deposit_zns_link.delay(enrollment_id)
             send_new_order_telegram.delay(enrollment_id)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Không trigger được task notify enrollment: %s", exc)

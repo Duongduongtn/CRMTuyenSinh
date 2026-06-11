@@ -167,9 +167,10 @@ REST_FRAMEWORK = {
         "user": "300/minute",
         "lead_capture": "30/hour",   # chống spam form
         "deposit_link": "30/minute", # chống enum đơn qua public deposit endpoint
-        "otp_request": "5/hour",     # 5 OTP/giờ/SĐT
-        "otp_verify": "30/hour",     # 30 lần verify/giờ/IP chống brute-force
-        "otp_verify_phone": "10/hour",  # 10 lần verify/giờ/SĐT — chặn botnet đổi IP
+        # Login học viên (SĐT + 6 số cuối CCCD) — entropy 10^6 + lock cứng ở model.
+        "student_login_phone_hour": "10/hour",  # 10 lần/giờ/SĐT
+        "student_login_phone_day": "30/day",    # 30 lần/ngày/SĐT
+        "student_login_ip": "60/hour",          # 60 lần/giờ/IP chống scan
         "delete_request": "5/hour",  # 5 yêu cầu xóa dữ liệu/giờ/account
         "report_export": "10/hour",  # 10 lần export Excel/giờ/user — chống DoS gen file
     },
@@ -288,10 +289,8 @@ TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_CHAT_ID = env.str("TELEGRAM_CHAT_ID", default="")
 CASSO_WEBHOOK_SECRET = env.str("CASSO_WEBHOOK_SECRET", default="")
 CASSO_API_KEY = env.str("CASSO_API_KEY", default="")
-ZNS_ACCESS_TOKEN = env.str("ZNS_ACCESS_TOKEN", default="")
-ZNS_REFRESH_TOKEN = env.str("ZNS_REFRESH_TOKEN", default="")
-ZNS_TEMPLATE_ID_OTP = env.str("ZNS_TEMPLATE_ID_OTP", default="")
-ZNS_TEMPLATE_ID_DEPOSIT = env.str("ZNS_TEMPLATE_ID_DEPOSIT", default="")
+# ZNS_* + SMTP đã bị loại khỏi MVP ở Sprint 3 Tuần 7 (2026-06-11 gói A + 2026-06-12
+# gói B). Auth học viên chuyển sang SĐT + 6 số cuối CCCD. Không cấu hình lại.
 
 # Facebook Lead Ads webhook
 FB_APP_SECRET = env.str("FB_APP_SECRET", default="")

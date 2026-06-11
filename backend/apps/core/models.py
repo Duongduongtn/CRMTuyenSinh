@@ -216,17 +216,15 @@ class IntegrationCredential(models.Model):
 
     Provider + key tổ hợp duy nhất. Khoá Fernet ở `settings.FERNET_SECRET`.
 
-    Scope chốt 2026-06-11 (Sprint 3 Tuần 7): user bỏ ZNS Zalo + SMTP khỏi MVP.
-    Provider.ZNS + Provider.SMTP GIỮ trong choices (deprecated) để code app cũ
-    chưa refactor không crash. UI `/admin/integrations` chỉ hiện Casso + FB.
+    Scope chốt 2026-06-11 (gói A) — bỏ ZNS Zalo + SMTP khỏi MVP, choices còn
+    Casso + FB. Cụm B (2026-06-12) chính thức loại Provider.ZNS/Provider.SMTP
+    khỏi enum + xóa orphan record qua management command
+    ``cleanup_deprecated_integrations`` (xem [[integration-keys-ui]]).
     """
 
     class Provider(models.TextChoices):
         CASSO = "casso", _("Casso (đối soát QR)")
         FB = "fb", _("Facebook Lead Ads")
-        # Deprecated 2026-06-11 — giữ cho code cũ, UI không hiện.
-        ZNS = "zns", _("Zalo ZNS (deprecated)")
-        SMTP = "smtp", _("Email SMTP (deprecated)")
 
     provider = models.CharField(
         _("Tích hợp"),
