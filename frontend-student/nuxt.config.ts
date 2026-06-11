@@ -1,17 +1,13 @@
 // Nuxt 3 PWA — Học viên CRM tuyển sinh lái xe.
-// CSR (không SSG), mobile-first, JWT auth qua localStorage.
-// API base trỏ về Django dev local hoặc prod crm.<domain>/api.
+// SPA mode (ssr: false), mobile-first, JWT auth qua localStorage.
+// Auth gating chạy client-side, route đứng sau JWT → không cần SSR cho SEO.
+// Deploy bằng `nuxt generate` → static .output/public/ rsync lên nginx.
+// API base trỏ về Django dev local hoặc prod sale.<domain>/api.
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-06-10',
   devtools: { enabled: true },
-  // SSR mặc định cho compatibility Nuxt 3.21 + Vite 7.
-  // Auth gating chạy ở client-side (middleware đã `import.meta.client` check),
-  // routes chỉ render shell trên server rồi hydrate.
-  // KHÔNG prerender — học viên app cần dữ liệu động.
-  routeRules: {
-    '/**': { ssr: true, prerender: false },
-  },
+  ssr: false,
 
   modules: [
     '@nuxtjs/tailwindcss',

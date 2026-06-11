@@ -118,12 +118,52 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------
-  # 3. Deploy - SSH vao VPS, pull code, rebuild backend container,
-  #    rsync FE dist len /var/www/thanhdat/frontend-crm/dist/.
+  # 3. Frontend Student (PWA hoc vien) build - Nuxt 3 SPA mode (ssr: false).
+  #    `nuxt generate` xuat static .output/public/ -> rsync len nginx serve.
+  # -------------------------------------------------------------------
+  frontend-student-build:
+    name: Frontend Student PWA build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend-student/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: frontend-student
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate (Nuxt SPA static)
+        working-directory: frontend-student
+        env:
+          NUXT_PUBLIC_API_BASE: https://sale.trungtamthanhdat.com/api
+          NUXT_PUBLIC_PUBLIC_URL: https://hocvien.trungtamthanhdat.com
+        run: pnpm run generate
+
+      - name: Upload .output/public artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-student-dist
+          path: frontend-student/.output/public/
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 4. Deploy - SSH vao VPS, pull code, rebuild backend container,
+  #    rsync 2 FE dist (CRM + PWA hoc vien) len cac thu muc tuong ung.
   # -------------------------------------------------------------------
   deploy:
     name: Deploy len VPS
-    needs: [backend-test, frontend-crm-build]
+    needs: [backend-test, frontend-crm-build, frontend-student-build]
     runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/main'
     environment:
@@ -150,6 +190,12 @@ jobs:
           name: frontend-crm-dist
           path: /tmp/frontend-crm-dist/
 
+      - name: Download FE Student PWA dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-student-dist
+          path: /tmp/frontend-student-dist/
+
       - name: SSH deploy backend (git pull + docker compose build/up + migrate)
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -170,6 +216,8 @@ jobs:
           # Tao thu muc bind mount neu chua co.
           mkdir -p /var/www/thanhdat/backend-media /var/www/thanhdat/backend-static
           mkdir -p /var/www/thanhdat/frontend-crm/dist
+          # PWA hoc vien: nginx tro root vao .output/public (xem hocvien.*.conf:43).
+          mkdir -p /var/www/thanhdat/frontend-student/.output/public
 
           # Build backend image (cache layer requirements.txt -> rebuild nhanh khi chi doi code).
           # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
@@ -206,6 +254,16 @@ jobs:
             /tmp/frontend-crm-dist/ \
             "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-crm/dist/"
 
+      - name: Rsync FE Student PWA dist len VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          rsync -avz --delete --no-times \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            /tmp/frontend-student-dist/ \
+            "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-student/.output/public/"
+
       - name: Smoke test HTTPS
         run: |
           # Check BE health (chap nhan 200/401/403 - tat ca deu chung to BE alive).
@@ -219,11 +277,17 @@ jobs:
             *) echo "BE FAIL: $BE_CODE"; exit 1;;
           esac
 
-          # Check FE serve (200 mong doi).
+          # Check FE CRM serve (200 mong doi).
           FE_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
             https://sale.trungtamthanhdat.com/)
-          echo "FE /: $FE_CODE"
-          [ "$FE_CODE" = "200" ] || { echo "FE FAIL"; exit 1; }
+          echo "FE CRM /: $FE_CODE"
+          [ "$FE_CODE" = "200" ] || { echo "FE CRM FAIL"; exit 1; }
+
+          # Check PWA hoc vien serve (200 mong doi sau rsync .output/public).
+          HV_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            https://hocvien.trungtamthanhdat.com/)
+          echo "PWA hocvien /: $HV_CODE"
+          [ "$HV_CODE" = "200" ] || { echo "PWA hocvien FAIL"; exit 1; }
 
       - name: Notify Telegram (optional)
         if: always()
