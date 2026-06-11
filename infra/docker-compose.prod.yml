@@ -133,9 +133,10 @@ services:
   # FE public Nuxt 3 hybrid SSR. Build artifact (.output/) rsync tu CI vao
   # /var/www/thanhdat/frontend-public/.output/. Service mount read-only va
   # spawn `node server/index.mjs` -> lang nghe 0.0.0.0:3000 internal.
-  # Nginx host proxy_pass 127.0.0.1:3004 -> service nay.
+  # Nginx host proxy_pass 127.0.0.1:3104 -> service nay.
   #
-  # Cong 3000-3003 chiem boi cac project khac tren VPS chung -> dung 3004.
+  # Cong 3000-3010 chiem boi cac project khac tren VPS chung (CI T2 fail
+  # voi 3004 already allocated). Dung 3104 cao hon, ranh hon.
   frontend-public-ssr:
     image: node:20-alpine
     container_name: thanhdat-frontend-public-ssr
@@ -153,7 +154,7 @@ services:
     working_dir: /app
     command: ["node", "server/index.mjs"]
     ports:
-      - "127.0.0.1:3004:3000"
+      - "127.0.0.1:3104:3000"
     healthcheck:
       # Nuxt SSR khong co endpoint /healthz mac dinh -> GET / luon tra HTML 200.
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]

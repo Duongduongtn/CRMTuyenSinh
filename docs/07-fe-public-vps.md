@@ -8,12 +8,12 @@
 ## 1. Kiến trúc
 
 - **Build**: Nuxt 3 hybrid (`nitro.preset: 'node-server'`). CI sinh `.output/server/index.mjs` + `.output/public/` (route prerender).
-- **Runtime**: docker service `frontend-public-ssr` (node:20-alpine) mount `.output` read-only, spawn `node server/index.mjs` listen `0.0.0.0:3000` trong container → bind `127.0.0.1:3004` ngoài host.
-- **Nginx**: vhost apex `trungtamthanhdat.com.conf` proxy_pass `http://127.0.0.1:3004` cho mọi route. `/_nuxt/` có cache header 30 ngày.
+- **Runtime**: docker service `frontend-public-ssr` (node:20-alpine) mount `.output` read-only, spawn `node server/index.mjs` listen `0.0.0.0:3000` trong container → bind `127.0.0.1:3104` ngoài host.
+- **Nginx**: vhost apex `trungtamthanhdat.com.conf` proxy_pass `http://127.0.0.1:3104` cho mọi route. `/_nuxt/` có cache header 30 ngày.
 - **CI**: workflow `deploy.yml` job `frontend-public-build` build + upload artifact, deploy job rsync vào `/var/www/thanhdat/frontend-public/.output/` rồi `docker compose restart frontend-public-ssr`.
 
 ```
-visitor → nginx host (443) → 127.0.0.1:3004 (docker host port)
+visitor → nginx host (443) → 127.0.0.1:3104 (docker host port)
                           → thanhdat-frontend-public-ssr:3000 (container)
                           → node server/index.mjs (Nitro hybrid)
                           → serve static .output/public/* hoặc SSR render

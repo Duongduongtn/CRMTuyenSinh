@@ -483,6 +483,23 @@ jobs:
           ssh "${VPS_USER}@${VPS_HOST}" bash -se <<'EOF'
           set -euo pipefail
           cd /var/www/thanhdat/infra
+
+          # Dam bao container cu (neu co tu CI fail truoc voi port 3004) duoc stop
+          # va remove de tranh port linger. Lan dau khong co container -> rm fail
+          # silent (|| true).
+          docker compose --env-file .env.prod -f docker-compose.prod.yml rm -sf frontend-public-ssr 2>/dev/null || true
+
+          # Verify port 3104 free truoc khi up. Neu chiem boi project khac, log
+          # process roi exit fail som de khong burn CI thoi gian doi.
+          if ss -tlnp 2>/dev/null | grep -qE '127\.0\.0\.1:3104 |0\.0\.0\.0:3104 |\[::\]:3104 '; then
+            echo "FAIL: port 3104 da bi chiem."
+            echo "--- ss -tlnp grep 3104:"
+            ss -tlnp 2>/dev/null | grep 3104
+            echo "--- docker ps with port 3104:"
+            docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 3104 || echo "(khong phai docker)"
+            exit 1
+          fi
+
           # `up -d` se tao service neu chua co (lan dau), idempotent neu da co.
           docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend-public-ssr
           # `restart` de Node process pick up artifact moi (mount read-only).

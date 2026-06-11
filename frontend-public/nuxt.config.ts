@@ -39,7 +39,7 @@ export default defineNuxtConfig({
   // (serve sieu nhanh tu Nitro server static layer), /dh/[token] runtime SSR.
   // Preset node-server -> output `.output/server/index.mjs` chay duoc bang
   // `node .output/server/index.mjs` tren VPS. Docker service frontend-public-ssr
-  // mount `.output` va spawn process nay, nginx host proxy 127.0.0.1:3004.
+  // mount `.output` va spawn process nay, nginx host proxy 127.0.0.1:3104.
   //
   // Ignore `/_ipx` de KHONG prerender anh remote (Unsplash) qua IPX. Mac dinh
   // crawlLinks=true follow links `_ipx/.../https://images.unsplash.com/...` -> sinh
