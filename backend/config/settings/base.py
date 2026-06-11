@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.blog",
     "apps.marketing",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -62,7 +63,16 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Audit phải đặt SAU AuthenticationMiddleware để get_current_request().user đã có.
+    "apps.core.middleware.AuditContextMiddleware",
+    # CSP cuối chain để bao mọi response (kể cả admin + API).
+    "apps.core.middleware.SimpleCSPMiddleware",
 ]
+
+# CSP defaults (dev có thể override). Prod set strict trong settings/prod.py.
+CSP_ENABLED = True
+CSP_REPORT_ONLY = False
+CSP_DIRECTIVES = {}
 
 ROOT_URLCONF = "config.urls"
 
@@ -161,6 +171,7 @@ REST_FRAMEWORK = {
         "otp_verify": "30/hour",     # 30 lần verify/giờ/IP chống brute-force
         "otp_verify_phone": "10/hour",  # 10 lần verify/giờ/SĐT — chặn botnet đổi IP
         "delete_request": "5/hour",  # 5 yêu cầu xóa dữ liệu/giờ/account
+        "report_export": "10/hour",  # 10 lần export Excel/giờ/user — chống DoS gen file
     },
 }
 
@@ -168,6 +179,10 @@ REST_FRAMEWORK = {
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 + 256 * 1024  # 5MB + buffer headers
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 200  # chống DoS multipart spam field
+
+# Chỉ honor X-Forwarded-For khi đứng sau proxy đáng tin (nginx ở prod).
+# Dev thường truy cập trực tiếp, để mặc định False tránh client forge IP audit.
+TRUST_X_FORWARDED_FOR = env.bool("TRUST_X_FORWARDED_FOR", default=False)
 
 # Celery
 CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default="") or env.str("REDIS_URL", default="memory://")

@@ -217,6 +217,7 @@ class AuditLog(models.Model):
         VIEW_SENSITIVE = "view_sensitive", _("Xem dữ liệu nhạy cảm")
         LOGIN = "login", _("Đăng nhập")
         LOGIN_FAILED = "login_failed", _("Đăng nhập thất bại")
+        LOGOUT = "logout", _("Đăng xuất")
         PERMISSION_CHANGE = "permission_change", _("Đổi quyền")
 
     user = models.ForeignKey(

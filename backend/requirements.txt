@@ -13,6 +13,7 @@ django-unfold==0.42.0
 # Patterns
 django-solo==2.4.0          # SiteSettings singleton
 Pillow==10.4.0              # ImageField
+openpyxl==3.1.5             # Excel export báo cáo Sprint 3 Tuần 6
 
 # PDF (đơn đăng ký Sở GTVT). Trên Windows cần GTK runtime — nếu chưa có endpoint
 # fallback HTML preview vẫn hoạt động (xem apps/orders/pdf.py).

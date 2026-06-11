@@ -29,6 +29,32 @@ SECURE_HSTS_SECONDS = env.int("DJANGO_HSTS_SECONDS", default=60 * 60 * 24 * 30) 
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = False  # bật khi đã chắc chắn không rollback HTTPS
 
+# CSP strict prod — chỉ self + đối tác QR ngân hàng. Khi có CDN, thêm whitelist ở đây.
+CSP_ENABLED = True
+CSP_REPORT_ONLY = env.bool("DJANGO_CSP_REPORT_ONLY", default=False)
+CSP_DIRECTIVES = {
+    # Hình QR có thể nhúng từ api.vietqr.io khi đặt cọc.
+    "img-src": "'self' data: blob: https://api.vietqr.io https:",
+    # Cho phép FE public + PWA học viên + CRM gọi API cross-subdomain.
+    "connect-src": " ".join([
+        "'self'",
+        env.str("SITE_PUBLIC_URL", default=""),
+        env.str("SITE_STUDENT_URL", default=""),
+        env.str("SITE_CRM_URL", default=""),
+    ]).strip(),
+    # Strict script-src: bỏ 'unsafe-inline' khỏi prod. Django admin sẽ được
+    # SimpleCSPMiddleware nới riêng qua relaxed policy cho path /admin/.
+    "script-src": "'self'",
+}
+
+# Path prefix vẫn cần 'unsafe-inline' (Django admin inline script).
+# SimpleCSPMiddleware sẽ swap qua CSP_DIRECTIVES_RELAXED khi match.
+CSP_RELAXED_PATH_PREFIXES = ("/admin/",)
+CSP_DIRECTIVES_RELAXED = {
+    **CSP_DIRECTIVES,
+    "script-src": "'self' 'unsafe-inline'",
+}
+
 # === Cookie ===
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
