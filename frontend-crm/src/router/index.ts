@@ -49,6 +49,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Thanh toán' },
       },
       {
+        path: 'reports',
+        name: 'reports',
+        component: () => import('@/pages/Reports.vue'),
+        meta: { title: 'Báo cáo' },
+      },
+      {
         path: 'documents',
         name: 'documents',
         component: () => import('@/pages/DocumentsList.vue'),

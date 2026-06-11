@@ -9,6 +9,7 @@ import {
   FolderSimple,
   GraduationCap,
   ShieldCheck,
+  ChartBar,
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
@@ -31,6 +32,7 @@ const items = computed<NavItem[]>(() => [
   { to: '/leads', label: 'Khách tiềm năng', icon: UsersThree, groups: [ROLES.ADMIN, ROLES.SALE] },
   { to: '/orders', label: 'Đơn đăng ký', icon: ClipboardText, groups: [ROLES.ADMIN, ROLES.SALE, ROLES.ACCOUNTANT, ROLES.CLERK] },
   { to: '/payments', label: 'Thanh toán', icon: Wallet, groups: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
+  { to: '/reports', label: 'Báo cáo', icon: ChartBar, groups: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
   { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: [ROLES.ADMIN, ROLES.CLERK] },
   { to: '/students', label: 'Học viên', icon: GraduationCap, groups: [ROLES.ADMIN, ROLES.CLERK, ROLES.SALE] },
 ])

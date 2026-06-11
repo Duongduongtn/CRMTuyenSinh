@@ -41,5 +41,7 @@ export {
   PhEye as Eye,
   PhEyeSlash as EyeSlash,
   PhFilePdf as FilePdf,
+  PhFileXls as FileXls,
+  PhChartBar as ChartBar,
   PhReceipt as Receipt,
 } from '@phosphor-icons/vue'
