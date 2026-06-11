@@ -117,10 +117,14 @@ def _cache_key(provider: str, key: str) -> str:
 
 
 def get_credential(provider: str, key: str, default: str = "") -> str:
-    """Đọc credential theo priority: cache → DB → settings ENV → default.
+    """Đọc credential theo priority: cache (DB) → DB → settings ENV → default.
 
     Schema phải đăng ký trong `INTEGRATION_SCHEMA`. Provider+key lạ → ValueError
     ở dev để bắt typo, prod silent fallback default để không phá runtime.
+
+    Chỉ cache giá trị từ DB. Fallback ENV đọc trực tiếp `settings.<NAME>` mỗi lần
+    để `@override_settings` trong test (và `os.environ` change runtime) phản ánh
+    ngay, không bị stale cache.
     """
     schema = INTEGRATION_SCHEMA.get(provider)
     if schema is None or key not in schema:
@@ -133,9 +137,10 @@ def get_credential(provider: str, key: str, default: str = "") -> str:
 
     ck = _cache_key(provider, key)
     cached = cache.get(ck)
-    if cached is not None:
-        # Empty string vẫn cache để tránh hammer DB khi credential rỗng.
-        return cached or default
+    if cached:
+        # CHỈ trả cache nếu CÓ value (truthy). Cache miss + empty string → tiếp tục
+        # đọc DB rồi ENV để bắt thay đổi runtime.
+        return cached
 
     # Đọc DB - bắt mọi exception (DB chưa migrate, connection lỗi) để fallback ENV.
     db_value = ""
@@ -154,10 +159,9 @@ def get_credential(provider: str, key: str, default: str = "") -> str:
         cache.set(ck, db_value, CACHE_TTL_SECONDS)
         return db_value
 
-    # Fallback ENV - lấy theo schema mapping.
+    # Fallback ENV - đọc TRỰC TIẾP settings (KHÔNG cache để override_settings work).
     env_setting_name = schema[key][0]
     env_value = getattr(settings, env_setting_name, "") or ""
-    cache.set(ck, env_value, CACHE_TTL_SECONDS)
     return env_value or default
 
 

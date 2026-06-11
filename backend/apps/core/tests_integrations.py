@@ -121,27 +121,54 @@ class IntegrationLoaderTests(TestCase):
             "db-casso-value",
         )
 
-    def test_invalidate_clears_cache(self):
-        # Lần đầu đọc → cache env value.
+    def test_env_fallback_is_not_cached(self):
+        """ENV fallback đọc trực tiếp settings mỗi lần — `@override_settings`
+        trong test (và rotate ENV runtime) phản ánh ngay, không bị stale cache.
+        """
+        # Lần đầu đọc → ENV value, KHÔNG cache.
         self.assertEqual(
             integrations.get_credential("zns", "access_token"),
             "env-zns-fallback",
         )
 
-        # Tạo DB record sau đó. Cache vẫn giữ ENV cũ.
+        # Override settings tạm thời → giá trị mới ngay lập tức.
+        with self.settings(ZNS_ACCESS_TOKEN="env-changed-mid-test"):
+            self.assertEqual(
+                integrations.get_credential("zns", "access_token"),
+                "env-changed-mid-test",
+            )
+
+        # Khôi phục override → giá trị gốc.
+        self.assertEqual(
+            integrations.get_credential("zns", "access_token"),
+            "env-zns-fallback",
+        )
+
+    def test_db_value_is_cached_and_invalidate_works(self):
+        """Khi có DB value, kết quả được cache TTL 60s. invalidate() force re-read."""
         cred = IntegrationCredential(provider="zns", key="access_token")
-        cred.set_value("db-new-value")
+        cred.set_value("db-value-v1")
+        cred.save()
+
+        # Lần đầu: cache miss → đọc DB → cache "db-value-v1".
+        self.assertEqual(
+            integrations.get_credential("zns", "access_token"),
+            "db-value-v1",
+        )
+
+        # Đổi DB sau đó. Cache vẫn giữ v1.
+        cred.set_value("db-value-v2")
         cred.save()
         self.assertEqual(
             integrations.get_credential("zns", "access_token"),
-            "env-zns-fallback",
+            "db-value-v1",
         )
 
-        # Invalidate → đọc lại từ DB.
+        # Invalidate → re-read DB → v2.
         integrations.invalidate("zns", "access_token")
         self.assertEqual(
             integrations.get_credential("zns", "access_token"),
-            "db-new-value",
+            "db-value-v2",
         )
 
     def test_default_when_unknown_provider(self):
