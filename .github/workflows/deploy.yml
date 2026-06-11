@@ -151,14 +151,35 @@ jobs:
           NUXT_PUBLIC_API_BASE: https://sale.trungtamthanhdat.com/api
           NUXT_PUBLIC_SITE_URL: https://trungtamthanhdat.com
           NUXT_PUBLIC_STUDENT_URL: https://hocvien.trungtamthanhdat.com
+          NITRO_PRESET: node-server
         run: pnpm run build
+
+      - name: Verify .output xuat hien
+        working-directory: frontend-public
+        run: |
+          if [ ! -f .output/server/index.mjs ]; then
+            echo "FAIL: .output/server/index.mjs khong ton tai sau build"
+            echo "--- ls -la .output:"
+            ls -la .output 2>&1 || echo "(folder .output khong ton tai)"
+            echo "--- ls -la .output/server:"
+            ls -la .output/server 2>&1 || true
+            echo "--- ls -la .output/public:"
+            ls -la .output/public 2>&1 || true
+            exit 1
+          fi
+          echo "OK: .output/server/index.mjs ($(stat -c '%s' .output/server/index.mjs) bytes)"
+          echo "Public files: $(find .output/public -type f | wc -l)"
 
       - name: Upload .output artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-public-output
           path: frontend-public/.output/
+          if-no-files-found: error
           retention-days: 7
+          # Folder co dotfile (.gitkeep, ...). Default upload-artifact v4 exclude
+          # paths bat dau bang dot -> them include-hidden de giu nguyen.
+          include-hidden-files: true
 
   # -------------------------------------------------------------------
   # 4. Frontend Student (PWA hoc vien) build - Nuxt 3 SPA mode (ssr: false).
