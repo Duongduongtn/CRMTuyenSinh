@@ -23,6 +23,9 @@ weasyprint==62.3
 celery==5.4.0
 redis==5.2.0
 
+# Observability (chỉ init khi SENTRY_DSN có giá trị; xem config/settings/prod.py)
+sentry-sdk[django]==2.18.0
+
 # Dev tools
 django-debug-toolbar==4.4.6
 django-extensions==3.2.3

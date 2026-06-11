@@ -113,3 +113,25 @@ EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
 LOGGING["root"]["level"] = "WARNING"  # noqa: F405
 LOGGING["loggers"]["apps"]["level"] = "INFO"  # noqa: F405
 LOGGING["loggers"]["django"]["level"] = "WARNING"  # noqa: F405
+
+# === Sentry (observability, optional) ===
+# Init chỉ khi SENTRY_DSN có giá trị. DSN trống → SDK no-op, không phá deploy
+# khi tài khoản Sentry chưa sẵn sàng.
+#
+# Ràng buộc PII: send_default_pii=False bắt buộc — CCCD/SĐT/email là dữ liệu
+# nhạy cảm; KHÔNG đẩy lên Sentry server. Nếu cần stack-trace có thêm context,
+# dùng sentry_sdk.set_context() ở chỗ raise, lọc tay field cho phép.
+SENTRY_DSN = env.str("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+        send_default_pii=False,
+        environment=env.str("SENTRY_ENVIRONMENT", default="production"),
+        release=env.str("SENTRY_RELEASE", default=""),
+    )

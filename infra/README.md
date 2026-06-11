@@ -339,6 +339,30 @@ gunzip -c /var/backups/thanhdat/crm-YYYYMMDD-HHMM.sql.gz | head -100
 0 2 * * * root . /etc/default/thanhdat-backup && /var/www/thanhdat/infra/scripts/pg_backup.sh >/dev/null 2>&1
 ```
 
+## Sentry observability (tùy chọn)
+
+SDK đã wire sẵn ở cả BE (`config/settings/prod.py`) và FE (`frontend-crm/src/main.ts`). Khi `SENTRY_DSN` để trống → SDK no-op, deploy chạy bình thường. Để bật:
+
+1. Tạo tài khoản free tại https://sentry.io.
+2. Tạo 2 project trong tổ chức:
+   - Project 1: platform **Django** → copy DSN → paste vào `.env.prod` field `SENTRY_DSN`.
+   - Project 2: platform **Vue** → copy DSN → paste vào FE build env `VITE_SENTRY_DSN` (build CI/CD truyền qua khi `vite build`).
+3. Restart backend + rebuild FE:
+   ```bash
+   docker compose --env-file .env.prod -f docker-compose.prod.yml restart backend celery-worker celery-beat
+   # FE rebuild qua CI (push main) hoặc thủ công trên dev machine với env VITE_SENTRY_DSN set.
+   ```
+4. Verify event tới Sentry:
+   ```bash
+   docker compose --env-file .env.prod -f docker-compose.prod.yml exec backend \
+     python -c "import sentry_sdk; sentry_sdk.capture_message('Smoke test from BE')"
+   ```
+   Trong Sentry UI → Issues → thấy "Smoke test from BE" trong vài giây.
+
+**PII safety:** `send_default_pii=False` hard-code ở BE + `sendDefaultPii: false` ở FE — KHÔNG đẩy CCCD/SĐT/email/cookie vào Sentry. Nếu cần thêm context vào event, dùng `sentry_sdk.set_context()` ở chỗ raise và lọc tay field cho phép.
+
+**Sample rate:** mặc định `SENTRY_TRACES_SAMPLE_RATE=0.1` (10% transaction). Tăng lên 1.0 chỉ khi debug intensive, giảm về 0 khi ổn định để tiết kiệm quota free tier (5K events/tháng).
+
 ## Logs
 
 | Component | Path |
