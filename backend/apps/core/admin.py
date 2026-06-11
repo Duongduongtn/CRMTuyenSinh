@@ -3,7 +3,7 @@ from django.contrib import admin
 from solo.admin import SingletonModelAdmin
 from unfold.admin import ModelAdmin
 
-from .models import AuditLog, SiteSettings, SystemSetting
+from .models import AuditLog, IntegrationCredential, SiteSettings, SystemSetting
 
 
 @admin.register(SiteSettings)
@@ -92,6 +92,28 @@ class SystemSettingAdmin(ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("key", "description")
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(IntegrationCredential)
+class IntegrationCredentialAdmin(ModelAdmin):
+    """Fallback admin Django cho superadmin debug. UI chính nằm ở CRM SPA
+    `/admin/integrations` (xem apps/core/views.py:IntegrationListView).
+    """
+
+    list_display = ("provider", "key", "masked_display", "updated_at", "updated_by")
+    list_filter = ("provider",)
+    search_fields = ("key", "description")
+    readonly_fields = ("masked_display", "updated_at", "updated_by")
+    # KHÔNG show value_encrypted (binary), chỉ cho phép edit qua field tạm plaintext.
+    fields = ("provider", "key", "description", "masked_display", "updated_at", "updated_by")
+
+    def has_module_permission(self, request) -> bool:
+        return bool(request.user and request.user.is_superuser)
+
+    def masked_display(self, obj) -> str:
+        return obj.masked or "(rỗng)"
+
+    masked_display.short_description = "Giá trị (mask)"  # type: ignore[attr-defined]
 
 
 @admin.register(AuditLog)

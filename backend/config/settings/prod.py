@@ -83,6 +83,16 @@ CORS_ALLOW_ALL_ORIGINS = False  # tuyệt đối không bật ở prod
 
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
 
+# === Fernet encryption: prod BẮT BUỘC có key thật, KHÔNG dùng dev default ===
+if not FERNET_SECRET or FERNET_SECRET.startswith("dev-"):  # noqa: F405
+    raise ImproperlyConfigured(
+        "FERNET_SECRET chưa được set ở prod hoặc đang dùng dev default. "
+        "Sinh key 1 lần: python -c \"from cryptography.fernet import Fernet; "
+        "print(Fernet.generate_key().decode())\" rồi paste vào .env.prod. "
+        "Mất key = mất toàn bộ IntegrationCredential — phải backup riêng. "
+        "Xem docs/08-integration-credentials.md."
+    )
+
 # === ZNS phải cấu hình ===
 ZNS_ALLOW_MOCK = False  # chặn cứng mock log OTP ra console
 

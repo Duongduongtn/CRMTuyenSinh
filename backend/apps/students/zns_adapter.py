@@ -18,6 +18,8 @@ from typing import Any
 import requests
 from django.conf import settings
 
+from apps.core.integrations import get_credential
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,11 @@ class ZNSError(Exception):
 
 
 def _is_mock_mode() -> bool:
-    return not (settings.ZNS_ACCESS_TOKEN and settings.ZNS_TEMPLATE_ID_OTP)
+    """Mock khi access_token hoặc template OTP rỗng (DB + ENV đều thiếu)."""
+    return not (
+        get_credential("zns", "access_token")
+        and get_credential("zns", "template_id_otp")
+    )
 
 
 def _mask_phone(phone: str) -> str:
@@ -43,7 +49,7 @@ def send_otp(phone: str, code: str, *, template_id: str | None = None) -> dict[s
     KHÔNG bao giờ log plain code ở prod — chỉ dev/test với DJANGO_DEBUG=True
     hoặc ZNS_ALLOW_MOCK=True mới in code thuần.
     """
-    template_id = template_id or settings.ZNS_TEMPLATE_ID_OTP
+    template_id = template_id or get_credential("zns", "template_id_otp")
     if _is_mock_mode():
         # Chặn cứng prod: nếu không DEBUG và không cho phép mock → raise ngay.
         allow_mock = getattr(settings, "ZNS_ALLOW_MOCK", False) or settings.DEBUG
@@ -71,7 +77,7 @@ def send_otp(phone: str, code: str, *, template_id: str | None = None) -> dict[s
         "tracking_id": f"otp_{phone}_{code[:2]}",
     }
     headers = {
-        "access_token": settings.ZNS_ACCESS_TOKEN,
+        "access_token": get_credential("zns", "access_token"),
         "Content-Type": "application/json",
     }
     try:
@@ -97,7 +103,7 @@ def send_deposit_info(
     template_id: str | None = None,
 ) -> dict[str, Any]:
     """Gửi thông tin đặt cọc qua ZNS (Sprint 3 dùng)."""
-    template_id = template_id or settings.ZNS_TEMPLATE_ID_DEPOSIT
+    template_id = template_id or get_credential("zns", "template_id_deposit")
     if _is_mock_mode() or not template_id:
         logger.warning(
             "ZNS MOCK — Thông tin cọc cho %s: order=%s amount=%s bank=%s",

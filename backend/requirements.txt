@@ -10,6 +10,10 @@ psycopg[binary]==3.2.3
 # HTTP client (Casso webhook fetch, ZNS OTP gửi).
 requests==2.32.3
 
+# Symmetric encryption (Fernet AES-128) cho IntegrationCredential lưu key prod
+# trong DB - thay cho SSH paste .env.prod. Key seed qua FERNET_SECRET env.
+cryptography==43.0.3
+
 # Admin UI
 django-unfold==0.42.0
 

@@ -23,7 +23,6 @@ import logging
 import re
 from decimal import Decimal
 
-from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
@@ -231,7 +230,10 @@ def casso_webhook(request: HttpRequest) -> HttpResponse:
     Body: JSON theo Casso V2 spec (``{"error": 0, "data": [...]}``).
     """
     raw_body = request.body
-    secret = settings.CASSO_WEBHOOK_SECRET or ""
+    # Đọc secret qua loader: ưu tiên DB IntegrationCredential (UI paste), fallback ENV.
+    from apps.core.integrations import get_credential
+
+    secret = get_credential("casso", "webhook_secret") or ""
     if not secret:
         logger.error("CASSO_WEBHOOK_SECRET chưa cấu hình — từ chối webhook.")
         return JsonResponse(

@@ -207,6 +207,90 @@ class SystemSetting(models.Model):
         return self.key
 
 
+class IntegrationCredential(models.Model):
+    """Lưu credential 4 nhóm tích hợp (Casso/ZNS/FB/SMTP) mã hóa Fernet.
+
+    User paste key qua UI CRM SPA `/admin/integrations`, KHÔNG cần SSH `nano
+    .env.prod`. Backend đọc qua `apps.core.integrations.get_credential()` với
+    cache 60s. Fallback `settings.<NAME>` nếu DB chưa có (boot đầu, hoặc rỗng).
+
+    Provider + key tổ hợp duy nhất. Khoá Fernet ở `settings.FERNET_SECRET`.
+    """
+
+    class Provider(models.TextChoices):
+        CASSO = "casso", _("Casso (đối soát QR)")
+        ZNS = "zns", _("Zalo ZNS (OTP học viên)")
+        FB = "fb", _("Facebook Lead Ads")
+        SMTP = "smtp", _("Email SMTP")
+
+    provider = models.CharField(
+        _("Tích hợp"),
+        max_length=20,
+        choices=Provider.choices,
+    )
+    key = models.CharField(
+        _("Khóa"),
+        max_length=80,
+        help_text=_("Tên khóa: webhook_secret, api_key, access_token, ..."),
+    )
+    value_encrypted = models.BinaryField(
+        _("Giá trị (mã hóa Fernet)"),
+        blank=True,
+        default=b"",
+        help_text=_("KHÔNG đọc trực tiếp — dùng .get_value()."),
+    )
+    description = models.CharField(
+        _("Ghi chú"),
+        max_length=255,
+        blank=True,
+    )
+    updated_at = models.DateTimeField(_("Cập nhật lúc"), auto_now=True)
+    updated_by = models.ForeignKey(
+        "users.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("Cập nhật bởi"),
+    )
+
+    class Meta:
+        verbose_name = _("Khóa tích hợp")
+        verbose_name_plural = _("Khóa tích hợp")
+        ordering = ["provider", "key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "key"],
+                name="integration_credential_provider_key_unique",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_provider_display()} · {self.key}"
+
+    def set_value(self, plaintext: str) -> None:
+        """Encrypt + lưu. Empty → xóa value (không re-encrypt)."""
+        from .crypto import encrypt_str
+
+        self.value_encrypted = encrypt_str(plaintext or "")
+
+    def get_value(self) -> str:
+        """Decrypt → plaintext. Empty hoặc decrypt fail → "" (caller fallback)."""
+        from .crypto import decrypt_to_str
+
+        return decrypt_to_str(bytes(self.value_encrypted) if self.value_encrypted else b"")
+
+    @property
+    def masked(self) -> str:
+        """Hiển thị an toàn cho UI: '****abcd' (4 ký tự cuối). Empty → ''."""
+        v = self.get_value()
+        if not v:
+            return ""
+        if len(v) <= 4:
+            return "****"
+        return "****" + v[-4:]
+
+
 class AuditLog(models.Model):
     """Ghi nhận action quan trọng để truy vết. Nhẹ, không thay thế logging."""
 

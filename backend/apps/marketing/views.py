@@ -20,6 +20,8 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from apps.core.integrations import get_credential
+
 from .services import FBLeadProcessError, process_fb_leadgen
 
 logger = logging.getLogger("apps.marketing")
@@ -33,7 +35,8 @@ def _verify_signature(raw_body: bytes, signature_header: str) -> bool:
     có secret từ FB Business Manager. KHÔNG dùng cờ DEBUG vì admin có thể bật
     DEBUG tạm ở prod để debug rồi quên tắt → đủ điều kiện bypass attacker.
     """
-    app_secret = getattr(settings, "FB_APP_SECRET", "") or ""
+    # Ưu tiên DB IntegrationCredential (UI paste), fallback ENV settings.FB_APP_SECRET.
+    app_secret = get_credential("fb", "app_secret") or ""
     if not app_secret:
         if getattr(settings, "FB_ALLOW_INSECURE_DEV", False):
             logger.warning(
@@ -67,7 +70,7 @@ def fb_leadgen_webhook(request):
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
-        expected = getattr(settings, "FB_LEAD_VERIFY_TOKEN", "") or ""
+        expected = get_credential("fb", "lead_verify_token") or ""
         if not expected:
             logger.error("FB_LEAD_VERIFY_TOKEN chưa cấu hình.")
             return HttpResponse("forbidden", status=403)

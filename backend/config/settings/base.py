@@ -272,6 +272,17 @@ UNFOLD = {
     },
 }
 
+# Fernet encryption cho IntegrationCredential (key paste qua UI CRM SPA, lưu
+# vào DB mã hóa thay cho SSH paste .env.prod). Sinh key 1 lần:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Dev default key cố định để test/migrate chạy không cần ENV. Prod BẮT BUỘC override.
+FERNET_SECRET = env.str(
+    "FERNET_SECRET",
+    default="dev-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0=",  # noqa: S105 - dev only, prod override
+)
+# Cho phép rotation: list base64 keys cũ (csv) để MultiFernet thử decrypt fallback.
+FERNET_SECRET_OLD = env.str("FERNET_SECRET_OLD", default="")
+
 # External integrations
 TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_CHAT_ID = env.str("TELEGRAM_CHAT_ID", default="")
