@@ -325,6 +325,56 @@ jobs:
             /tmp/frontend-public-output/ \
             "${VPS_USER}@${VPS_HOST}:/var/www/thanhdat/frontend-public/.output/"
 
+      - name: Bootstrap SSL apex trungtamthanhdat.com (idempotent)
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          # Email cho Let's Encrypt notify het han (90 ngay). Doi sang email anh quan ly khi can.
+          CERT_EMAIL: admin@trungtamthanhdat.com
+        run: |
+          ssh "${VPS_USER}@${VPS_HOST}" bash -se <<'EOF'
+          set -euo pipefail
+
+          CERT_DIR=/etc/letsencrypt/live/trungtamthanhdat.com
+          VHOST_FULL=/etc/nginx/sites-enabled/trungtamthanhdat.com
+          VHOST_BOOTSTRAP=/etc/nginx/sites-enabled/trungtamthanhdat.com.bootstrap
+
+          # Idempotent: skip neu da co cert + vhost full SSL.
+          if [ -f "$CERT_DIR/fullchain.pem" ] && [ -L "$VHOST_FULL" ]; then
+            echo "FE public SSL apex da setup. Skip bootstrap."
+            exit 0
+          fi
+
+          mkdir -p /var/www/certbot
+
+          # 1. Bootstrap vhost HTTP-only de pass ACME challenge.
+          if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
+            cat > /etc/nginx/sites-available/trungtamthanhdat.com.bootstrap <<'NGINX'
+          server {
+              listen 80;
+              listen [::]:80;
+              server_name trungtamthanhdat.com www.trungtamthanhdat.com;
+              location /.well-known/acme-challenge/ { root /var/www/certbot; }
+              location / { return 404; }
+          }
+          NGINX
+            ln -sf /etc/nginx/sites-available/trungtamthanhdat.com.bootstrap "$VHOST_BOOTSTRAP"
+            nginx -t && systemctl reload nginx
+
+            # 2. Cap cert Let's Encrypt cho apex + www (1 cert).
+            certbot certonly --webroot -w /var/www/certbot \
+              -d trungtamthanhdat.com -d www.trungtamthanhdat.com \
+              --email "${CERT_EMAIL:-admin@trungtamthanhdat.com}" \
+              --agree-tos --no-eff-email --non-interactive
+          fi
+
+          # 3. Swap sang vhost full SSL.
+          rm -f "$VHOST_BOOTSTRAP"
+          ln -sf /var/www/thanhdat/infra/nginx/trungtamthanhdat.com.conf "$VHOST_FULL"
+          nginx -t && systemctl reload nginx
+          echo "Bootstrap SSL apex hoan tat."
+          EOF
+
       - name: Restart FE Public SSR service (reload Node process voi code moi)
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -337,6 +387,9 @@ jobs:
           docker compose --env-file .env.prod -f docker-compose.prod.yml up -d frontend-public-ssr
           # `restart` de Node process pick up artifact moi (mount read-only).
           docker compose --env-file .env.prod -f docker-compose.prod.yml restart frontend-public-ssr
+
+          # Cho Node SSR boot 5s truoc khi smoke test ben ngoai.
+          sleep 5
           EOF
 
       - name: Smoke test HTTPS
