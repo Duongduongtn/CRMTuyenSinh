@@ -44,4 +44,12 @@ export {
   PhFileXls as FileXls,
   PhChartBar as ChartBar,
   PhReceipt as Receipt,
+  PhPlugsConnected as PlugsConnected,
+  PhKey as Key,
+  PhFacebookLogo as FacebookLogo,
+  PhBank as Bank,
+  PhFloppyDisk as FloppyDisk,
+  PhInfo as Info,
+  PhCheck as Check,
+  PhWarning as Warning,
 } from '@phosphor-icons/vue'

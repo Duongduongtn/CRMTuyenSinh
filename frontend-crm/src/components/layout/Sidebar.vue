@@ -9,6 +9,7 @@ import {
   FolderSimple,
   GraduationCap,
   ChartBar,
+  PlugsConnected,
   X,
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
@@ -35,6 +36,7 @@ interface NavItem {
   icon: typeof House
   groups?: string[] // null = ai cũng thấy
   badge?: string
+  superuserOnly?: boolean
 }
 
 const items = computed<NavItem[]>(() => [
@@ -45,10 +47,12 @@ const items = computed<NavItem[]>(() => [
   { to: '/reports', label: 'Báo cáo', icon: ChartBar, groups: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
   { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: [ROLES.ADMIN, ROLES.CLERK] },
   { to: '/students', label: 'Học viên', icon: GraduationCap, groups: [ROLES.ADMIN, ROLES.CLERK, ROLES.SALE] },
+  { to: '/admin/integrations', label: 'Khóa tích hợp', icon: PlugsConnected, superuserOnly: true },
 ])
 
 const visibleItems = computed(() =>
   items.value.filter((item) => {
+    if (item.superuserOnly) return !!auth.user?.is_superuser
     if (!item.groups) return true
     return auth.hasAnyGroup(item.groups)
   }),

@@ -66,6 +66,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/StudentsList.vue'),
         meta: { title: 'Học viên' },
       },
+      {
+        path: 'admin/integrations',
+        name: 'admin-integrations',
+        component: () => import('@/pages/admin/Integrations.vue'),
+        meta: { title: 'Khóa tích hợp', superuserOnly: true },
+      },
     ],
   },
   {
@@ -99,6 +105,10 @@ router.beforeEach(async (to) => {
 
   if (!auth.isAuthenticated) {
     return { name: 'login', query: { next: to.fullPath } }
+  }
+
+  if (to.meta.superuserOnly && !auth.user?.is_superuser) {
+    return { name: 'dashboard' }
   }
   return true
 })

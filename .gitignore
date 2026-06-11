@@ -31,6 +31,9 @@ staticfiles/
 .env.prod
 infra/.env.prod
 
+# Secrets cuc bo (FERNET_SECRET backup, key prod) - khong bao gio commit
+.secrets/
+
 # Node (cho frontend future)
 node_modules/
 .nuxt/

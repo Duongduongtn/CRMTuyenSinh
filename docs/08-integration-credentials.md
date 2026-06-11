@@ -1,7 +1,15 @@
-# UI quản lý integration credentials (Casso / ZNS / FB / SMTP)
+# UI quản lý integration credentials (Casso + FB Lead Ads)
 
 > Tham chiếu: `backend/apps/core/models.py:IntegrationCredential`, `backend/apps/core/crypto.py`, `backend/apps/core/integrations.py`, `backend/apps/core/views.py`.
 > Mục đích: thay flow SSH `nano .env.prod` bằng form CRM SPA `/admin/integrations`. Vận hành (không phải dev) tự paste key vào UI, BE encrypt Fernet lưu DB, runtime đọc qua loader có cache 60s.
+
+## Scope chốt 2026-06-11 (Sprint 3 Tuần 7)
+
+User chốt **bỏ ZNS Zalo + SMTP khỏi MVP**:
+- ZNS Zalo: auth học viên chuyển sang SĐT + 6 số cuối CCCD (xem memory `student-auth-flow`). Code ZNS adapter / OTP / quick-view task sẽ bị xóa ở gói B (phiên sau).
+- SMTP: admin tự reset password trong CRM SPA, không gửi email. `EMAIL_BACKEND` ở prod đã đổi default sang `dummy` (`send_mail` no-op).
+
+`Provider.ZNS` + `Provider.SMTP` trong model GIỮ trong choices (deprecated) để code app cũ chưa refactor không crash. UI chỉ hiện Casso + FB.
 
 ---
 
@@ -13,29 +21,21 @@ User CRM SPA → PUT /api/admin/integrations/casso/ {webhook_secret: "...", api_
             → audit log (CHỈ tên key, KHÔNG plaintext)
             → invalidate cache
 
-Backend service (webhook handler, ZNS adapter, FB webhook) gọi:
+Backend service (webhook Casso, FB Lead Ads webhook) gọi:
   get_credential("casso", "webhook_secret")
             → cache 60s → DB IntegrationCredential → settings.<NAME> (ENV) → ""
 ```
 
-4 nhóm provider + key (xem `apps/core/integrations.py:INTEGRATION_SCHEMA`):
+2 nhóm provider + key active (xem `apps/core/integrations.py:INTEGRATION_SCHEMA`):
 
 | Provider | Key | Sensitive | Ghi chú |
 |---|---|---|---|
 | casso | webhook_secret | có | Verify HMAC từ Casso webhook |
 | casso | api_key | có | Gọi Casso API check giao dịch |
-| zns | access_token | có | TTL 7 ngày, refresh tự động |
-| zns | refresh_token | có | Xin access_token mới |
-| zns | template_id_otp | không | ID template OTP |
-| zns | template_id_deposit | không | ID template thông báo cọc |
 | fb | app_secret | có | Verify HMAC FB webhook |
 | fb | lead_verify_token | có | FB GET verify lúc setup |
-| smtp | host | không | smtp-relay.brevo.com |
-| smtp | port | không | 587 |
-| smtp | host_user | không | ID người gửi |
-| smtp | host_password | có | Key SMTP |
 
-> **SMTP runtime wire-up**: phiên này chỉ lưu DB. Django mail backend vẫn đọc `settings.EMAIL_*` từ ENV. Để DB override SMTP runtime cần wrap `EmailBackend` đọc loader — task riêng (chưa làm, ưu tiên Casso/ZNS/FB trước).
+> **FB Lead Ads**: defer — giữ UI tab để paste key khi nào user thật sự chạy quảng cáo Facebook. Code FB webhook handler chưa cần wire-up cho MVP launch.
 
 ## 2. Bootstrap FERNET_SECRET (chạy 1 LẦN trên VPS)
 
@@ -82,14 +82,14 @@ Nếu raise `ImproperlyConfigured: FERNET_SECRET chưa được cấu hình`:
 
 ## 3. Login CRM SPA paste key
 
-1. Mở `https://sale.trungtamthanhdat.com/admin/integrations` (SPA route — sẽ build trong sprint sau; trước mắt dùng Django admin fallback `/admin/core/integrationcredential/`).
+1. Mở `https://sale.trungtamthanhdat.com/admin/integrations` (SPA Vue 3 + Vite, taste-skill).
 2. Login bằng superuser (admin).
-3. Tab Casso → paste webhook_secret + api_key → Save.
-4. Tab ZNS → paste access_token, refresh_token, template_id_otp, template_id_deposit → Save.
-5. Tab Facebook → paste app_secret + lead_verify_token → Save.
-6. Tab SMTP → paste host, port, host_user, host_password → Save.
+3. Tab Casso → paste `webhook_secret` + `api_key` → Save.
+4. Tab Facebook → paste `app_secret` + `lead_verify_token` → Save (khi nào chạy FB Ads).
 
 Sau Save: backend đọc credential mới sau tối đa **60s** (cache TTL). KHÔNG cần restart container.
+
+> **Django admin fallback** `/admin/core/integrationcredential/` chỉ READ-ONLY: superuser xem được masked + audit timeline, KHÔNG add/edit/delete được (chặn cứng `has_add_permission = has_delete_permission = False`). Mọi tạo/xóa phải qua API có AuditLog.
 
 ## 4. Test bằng cURL (debug)
 
@@ -119,9 +119,7 @@ Output:
     },
     ...
   ],
-  "zns": [...],
-  "fb": [...],
-  "smtp": [...]
+  "fb": [...]
 }
 ```
 
@@ -211,11 +209,12 @@ Xem qua Django admin: `/admin/core/auditlog/`.
 - [x] Model `IntegrationCredential` + migration `0005`.
 - [x] `apps/core/crypto.py` Fernet wrapper + MultiFernet rotation.
 - [x] `apps/core/integrations.py` loader cache 60s + fallback ENV.
-- [x] Refactor 3 call site (Casso webhook, ZNS adapter, FB webhook) dùng loader.
+- [x] Refactor call site Casso webhook + FB webhook dùng loader (ZNS adapter còn legacy, gói B sẽ xóa).
 - [x] API `GET /api/admin/integrations/` + `PUT /api/admin/integrations/{provider}/` superuser only.
 - [x] Audit log mỗi PUT (CHỈ tên key, KHÔNG plaintext).
 - [x] Unit test crypto + loader + API permission + masking + idempotent.
 - [x] Doc bootstrap + rotation + disaster recovery.
-- [ ] **SPA tab `/admin/integrations`** — phiên sau (Vue 3 component, taste-skill).
-- [ ] **SMTP runtime wire** — phiên sau (cần wrap EmailBackend).
-- [ ] **Test connection button** mỗi provider (ping Casso/Zalo/FB API thử) — phiên sau.
+- [ ] **SPA tab `/admin/integrations`** — phiên này (Vue 3 + shadcn-vue, taste-skill, 2 tab Casso + FB).
+- [ ] **Test connection button** Casso (ping `casso.vn/v2/userInfo`) + FB (`graph.facebook.com/debug_token`) — phiên này.
+- ~~SMTP runtime wire~~ — bỏ scope (user chốt bỏ SMTP).
+- ~~ZNS adapter refactor~~ — bỏ scope (user chốt bỏ ZNS, gói B sẽ xóa code legacy).

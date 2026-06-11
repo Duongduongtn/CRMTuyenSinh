@@ -1,4 +1,4 @@
-"""Loader credential cho 4 nhóm tích hợp (Casso/ZNS/FB/SMTP).
+"""Loader credential cho tích hợp ngoài (Casso + FB Lead Ads).
 
 Thay flow `settings.CASSO_WEBHOOK_SECRET` bằng `get_credential("casso", "webhook_secret")`
 để hỗ trợ paste key qua UI CRM SPA `/admin/integrations` (DB encrypted Fernet)
@@ -8,6 +8,11 @@ Priority đọc: cache (60s) → DB IntegrationCredential → settings ENV → d
 
 Schema provider + key được khai báo cứng ở `INTEGRATION_SCHEMA` — UI dựng form
 từ schema này, không tự do paste key lạ.
+
+**Scope chốt 2026-06-11 (Sprint 3 Tuần 7):** user yêu cầu bỏ ZNS Zalo + SMTP khỏi
+MVP. Schema còn 2 nhóm: Casso (cần auto đối soát) + FB Lead Ads (defer, giữ tab
+để paste khi chạy ads). Code ZNS adapter / OTP / SMTP email tạm thời còn lại
+trong codebase nhưng KHÔNG dùng — phiên gói B sẽ refactor hết.
 """
 from __future__ import annotations
 
@@ -43,32 +48,6 @@ INTEGRATION_SCHEMA: dict[str, dict[str, tuple[str, str, bool, str]]] = {
             "Lấy từ my.casso.vn → API Token. Dùng để gọi API check giao dịch.",
         ),
     },
-    "zns": {
-        "access_token": (
-            "ZNS_ACCESS_TOKEN",
-            "Access Token",
-            True,
-            "Token gửi tin ZNS. TTL 7 ngày, refresh tự động dùng refresh_token.",
-        ),
-        "refresh_token": (
-            "ZNS_REFRESH_TOKEN",
-            "Refresh Token",
-            True,
-            "Token dùng để xin access token mới khi hết hạn.",
-        ),
-        "template_id_otp": (
-            "ZNS_TEMPLATE_ID_OTP",
-            "Template ID OTP",
-            False,
-            "ID template gửi mã OTP 6 chữ số (Zalo duyệt 1-3 ngày).",
-        ),
-        "template_id_deposit": (
-            "ZNS_TEMPLATE_ID_DEPOSIT",
-            "Template ID đặt cọc",
-            False,
-            "ID template thông báo đặt cọc thành công.",
-        ),
-    },
     "fb": {
         "app_secret": (
             "FB_APP_SECRET",
@@ -81,32 +60,6 @@ INTEGRATION_SCHEMA: dict[str, dict[str, tuple[str, str, bool, str]]] = {
             "Verify Token",
             True,
             "Chuỗi random 32 ký tự tự đặt. Paste vào Meta UI để Meta GET verify.",
-        ),
-    },
-    "smtp": {
-        "host": (
-            "EMAIL_HOST",
-            "SMTP Host",
-            False,
-            "VD: smtp-relay.brevo.com",
-        ),
-        "port": (
-            "EMAIL_PORT",
-            "SMTP Port",
-            False,
-            "Mặc định 587 (TLS).",
-        ),
-        "host_user": (
-            "EMAIL_HOST_USER",
-            "SMTP User",
-            False,
-            "ID người gửi do SMTP cấp.",
-        ),
-        "host_password": (
-            "EMAIL_HOST_PASSWORD",
-            "SMTP Password",
-            True,
-            "Key SMTP do nhà cung cấp cấp (Brevo/Sendgrid/Mailgun).",
         ),
     },
 }

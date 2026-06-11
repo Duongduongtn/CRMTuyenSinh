@@ -83,19 +83,18 @@ CORS_ALLOW_ALL_ORIGINS = False  # tuyệt đối không bật ở prod
 
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
 
-# === Fernet encryption: log WARNING khi prod chưa có key thật ===
-# KHÔNG raise startup — để backend start được + flow cũ (Casso/ZNS/FB đọc ENV
-# trực tiếp qua loader fallback) hoạt động bình thường. Khi user click vào UI
-# /admin/integrations để paste key, `apps/core/crypto.py:_build_cipher()` mới
-# lazy raise ImproperlyConfigured và API trả 503 — không phá deploy.
+# === Fernet encryption: BẮT BUỘC key thật ở prod ===
+# Trước đây chỉ log WARNING khi key thiếu/dev → nguy cơ deploy nhầm với default
+# dev key (vẫn là base64 hợp lệ, _build_cipher chấp nhận). Reviewer bảo mật
+# 2026-06-11 đề xuất raise cứng để chặn deploy nhầm.
 #
 # Bootstrap FERNET_SECRET thật theo `docs/08-integration-credentials.md` §2.
 if not FERNET_SECRET or FERNET_SECRET.startswith("dev-"):  # noqa: F405
-    import logging as _logging
-    _logging.getLogger("apps.core.crypto").warning(
-        "FERNET_SECRET chưa cấu hình hoặc đang dùng dev default. "
-        "UI /admin/integrations sẽ trả 503 cho đến khi cấp key thật "
-        "(xem docs/08-integration-credentials.md §2)."
+    raise ImproperlyConfigured(
+        "FERNET_SECRET chưa cấu hình hoặc đang dùng dev default ở prod. "
+        "Sinh key: python -c \"import secrets, base64; "
+        "print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())\" "
+        "rồi paste vào .env.prod. Xem docs/08-integration-credentials.md §2."
     )
 
 # === ZNS phải cấu hình ===
@@ -114,9 +113,13 @@ if _REDIS_URL:
         }
     }
 
-# === Email backend SMTP (override qua env) ===
+# === Email backend ===
+# User chốt 2026-06-11 bỏ SMTP khỏi MVP — admin tự reset password trong CRM SPA,
+# không gửi email tự động. Default DummyBackend = send_mail thành no-op, không
+# crash khi code legacy còn gọi. Nếu sau này cần email, set
+# DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend + EMAIL_HOST.
 EMAIL_BACKEND = env.str(
-    "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
+    "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.dummy.EmailBackend"
 )
 EMAIL_HOST = env.str("EMAIL_HOST", default="")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)

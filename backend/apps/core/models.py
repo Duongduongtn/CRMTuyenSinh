@@ -208,20 +208,25 @@ class SystemSetting(models.Model):
 
 
 class IntegrationCredential(models.Model):
-    """Lưu credential 4 nhóm tích hợp (Casso/ZNS/FB/SMTP) mã hóa Fernet.
+    """Lưu credential tích hợp ngoài (Casso + FB Lead Ads) mã hóa Fernet.
 
     User paste key qua UI CRM SPA `/admin/integrations`, KHÔNG cần SSH `nano
     .env.prod`. Backend đọc qua `apps.core.integrations.get_credential()` với
     cache 60s. Fallback `settings.<NAME>` nếu DB chưa có (boot đầu, hoặc rỗng).
 
     Provider + key tổ hợp duy nhất. Khoá Fernet ở `settings.FERNET_SECRET`.
+
+    Scope chốt 2026-06-11 (Sprint 3 Tuần 7): user bỏ ZNS Zalo + SMTP khỏi MVP.
+    Provider.ZNS + Provider.SMTP GIỮ trong choices (deprecated) để code app cũ
+    chưa refactor không crash. UI `/admin/integrations` chỉ hiện Casso + FB.
     """
 
     class Provider(models.TextChoices):
         CASSO = "casso", _("Casso (đối soát QR)")
-        ZNS = "zns", _("Zalo ZNS (OTP học viên)")
         FB = "fb", _("Facebook Lead Ads")
-        SMTP = "smtp", _("Email SMTP")
+        # Deprecated 2026-06-11 — giữ cho code cũ, UI không hiện.
+        ZNS = "zns", _("Zalo ZNS (deprecated)")
+        SMTP = "smtp", _("Email SMTP (deprecated)")
 
     provider = models.CharField(
         _("Tích hợp"),

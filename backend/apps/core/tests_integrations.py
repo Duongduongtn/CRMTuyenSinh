@@ -83,7 +83,7 @@ class IntegrationCredentialModelTests(TestCase):
         self.assertEqual(cred.masked, "****")
 
     def test_masked_empty(self):
-        cred = IntegrationCredential.objects.create(provider="zns", key="access_token")
+        cred = IntegrationCredential.objects.create(provider="fb", key="lead_verify_token")
         self.assertEqual(cred.masked, "")
 
     def test_unique_constraint_provider_key(self):
@@ -97,7 +97,7 @@ class IntegrationCredentialModelTests(TestCase):
 @override_settings(
     FERNET_SECRET=TEST_FERNET_KEY,
     CASSO_WEBHOOK_SECRET="env-casso-fallback",
-    ZNS_ACCESS_TOKEN="env-zns-fallback",
+    FB_APP_SECRET="env-fb-fallback",
 )
 class IntegrationLoaderTests(TestCase):
     def setUp(self):
@@ -127,32 +127,32 @@ class IntegrationLoaderTests(TestCase):
         """
         # Lần đầu đọc → ENV value, KHÔNG cache.
         self.assertEqual(
-            integrations.get_credential("zns", "access_token"),
-            "env-zns-fallback",
+            integrations.get_credential("fb", "app_secret"),
+            "env-fb-fallback",
         )
 
         # Override settings tạm thời → giá trị mới ngay lập tức.
-        with self.settings(ZNS_ACCESS_TOKEN="env-changed-mid-test"):
+        with self.settings(FB_APP_SECRET="env-changed-mid-test"):
             self.assertEqual(
-                integrations.get_credential("zns", "access_token"),
+                integrations.get_credential("fb", "app_secret"),
                 "env-changed-mid-test",
             )
 
         # Khôi phục override → giá trị gốc.
         self.assertEqual(
-            integrations.get_credential("zns", "access_token"),
-            "env-zns-fallback",
+            integrations.get_credential("fb", "app_secret"),
+            "env-fb-fallback",
         )
 
     def test_db_value_is_cached_and_invalidate_works(self):
         """Khi có DB value, kết quả được cache TTL 60s. invalidate() force re-read."""
-        cred = IntegrationCredential(provider="zns", key="access_token")
+        cred = IntegrationCredential(provider="fb", key="app_secret")
         cred.set_value("db-value-v1")
         cred.save()
 
         # Lần đầu: cache miss → đọc DB → cache "db-value-v1".
         self.assertEqual(
-            integrations.get_credential("zns", "access_token"),
+            integrations.get_credential("fb", "app_secret"),
             "db-value-v1",
         )
 
@@ -160,14 +160,14 @@ class IntegrationLoaderTests(TestCase):
         cred.set_value("db-value-v2")
         cred.save()
         self.assertEqual(
-            integrations.get_credential("zns", "access_token"),
+            integrations.get_credential("fb", "app_secret"),
             "db-value-v1",
         )
 
         # Invalidate → re-read DB → v2.
-        integrations.invalidate("zns", "access_token")
+        integrations.invalidate("fb", "app_secret")
         self.assertEqual(
-            integrations.get_credential("zns", "access_token"),
+            integrations.get_credential("fb", "app_secret"),
             "db-value-v2",
         )
 
@@ -212,18 +212,22 @@ class IntegrationAdminAPITests(TestCase):
         resp = self.client.get(reverse("integration-list"))
         self.assertEqual(resp.status_code, 403)
 
-    def test_list_returns_4_providers_with_schema_items(self):
+    def test_list_returns_active_providers_with_schema_items(self):
         self.client.force_authenticate(self.superuser)
         resp = self.client.get(reverse("integration-list"))
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
 
-        # 4 nhóm: casso, zns, fb, smtp.
-        self.assertEqual(set(data.keys()), {"casso", "zns", "fb", "smtp"})
+        # 2 nhóm active sau khi bỏ ZNS + SMTP: casso, fb.
+        self.assertEqual(set(data.keys()), {"casso", "fb"})
 
         # Casso có 2 key: webhook_secret + api_key.
         casso_keys = {item["key"] for item in data["casso"]}
         self.assertEqual(casso_keys, {"webhook_secret", "api_key"})
+
+        # FB có 2 key: app_secret + lead_verify_token.
+        fb_keys = {item["key"] for item in data["fb"]}
+        self.assertEqual(fb_keys, {"app_secret", "lead_verify_token"})
 
         # Mỗi item phải có label + sensitive + has_value + source.
         for item in data["casso"]:
@@ -268,15 +272,15 @@ class IntegrationAdminAPITests(TestCase):
 
     def test_put_empty_value_clears_credential(self):
         # Seed 1 credential, sau đó PUT empty → cleared.
-        cred = IntegrationCredential(provider="zns", key="access_token")
+        cred = IntegrationCredential(provider="fb", key="lead_verify_token")
         cred.set_value("existing-token")
         cred.save()
 
         self.client.force_authenticate(self.superuser)
-        url = reverse("integration-provider-update", kwargs={"provider": "zns"})
-        resp = self.client.put(url, data={"access_token": ""}, format="json")
+        url = reverse("integration-provider-update", kwargs={"provider": "fb"})
+        resp = self.client.put(url, data={"lead_verify_token": ""}, format="json")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("access_token", resp.json()["keys_cleared"])
+        self.assertIn("lead_verify_token", resp.json()["keys_cleared"])
 
         fresh = IntegrationCredential.objects.get(pk=cred.pk)
         self.assertEqual(fresh.get_value(), "")

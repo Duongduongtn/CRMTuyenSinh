@@ -96,19 +96,29 @@ class SystemSettingAdmin(ModelAdmin):
 
 @admin.register(IntegrationCredential)
 class IntegrationCredentialAdmin(ModelAdmin):
-    """Fallback admin Django cho superadmin debug. UI chính nằm ở CRM SPA
+    """Read-only admin Django (xem credential + audit). UI chính nằm ở CRM SPA
     `/admin/integrations` (xem apps/core/views.py:IntegrationListView).
+
+    Add/Delete chặn cứng ở admin để bắt buộc đi qua API có AuditLog. Superuser
+    không thể tạo/xóa silent qua Django admin.
     """
 
     list_display = ("provider", "key", "masked_display", "updated_at", "updated_by")
     list_filter = ("provider",)
     search_fields = ("key", "description")
     readonly_fields = ("masked_display", "updated_at", "updated_by")
-    # KHÔNG show value_encrypted (binary), chỉ cho phép edit qua field tạm plaintext.
     fields = ("provider", "key", "description", "masked_display", "updated_at", "updated_by")
 
     def has_module_permission(self, request) -> bool:
         return bool(request.user and request.user.is_superuser)
+
+    def has_add_permission(self, request) -> bool:
+        # Buộc tạo qua PUT /api/admin/integrations/{provider}/ (có AuditLog).
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        # Cleanup phải qua API hoặc shell command + audit log riêng.
+        return False
 
     def masked_display(self, obj) -> str:
         return obj.masked or "(rỗng)"
