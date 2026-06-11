@@ -40,13 +40,18 @@ export default defineNuxtConfig({
   // Preset node-server -> output `.output/server/index.mjs` chay duoc bang
   // `node .output/server/index.mjs` tren VPS. Docker service frontend-public-ssr
   // mount `.output` va spawn process nay, nginx host proxy 127.0.0.1:3004.
+  //
+  // Ignore `/_ipx` de KHONG prerender anh remote (Unsplash) qua IPX. Mac dinh
+  // crawlLinks=true follow links `_ipx/.../https://images.unsplash.com/...` -> sinh
+  // filename chua `:` `?` -> upload-artifact reject (NTFS safety). Khi runtime,
+  // <NuxtImg> goi IPX endpoint dong, anh khong cache filesystem.
   nitro: {
     preset: 'node-server',
     prerender: {
       crawlLinks: true,
       routes: ['/', '/khoa-hoc', '/tin-tuc', '/lien-he', '/robots.txt', '/sitemap.xml'],
       failOnError: false,
-      ignore: ['/dh'],
+      ignore: ['/dh', '/_ipx'],
     },
   },
 
