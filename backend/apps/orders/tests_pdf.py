@@ -32,8 +32,15 @@ def _make_course():
 
 
 def _make_enrollment(creator: User | None = None, code: str = "ORD-PDF001") -> Enrollment:
+    """Tạo Enrollment + auto-provision Account (path qua services).
+
+    Sprint 3 Tuần 7 nhánh Z: auto-provision đã chuyển từ signal sang
+    ``apps.orders.services._provision_student_account``.
+    """
+    from .services import _provision_student_account
+
     course = Course.objects.filter(slug="b-mt").first() or _make_course()
-    return Enrollment.objects.create(
+    enrollment = Enrollment.objects.create(
         code=code,
         course=course,
         student_name="Nguyễn Văn A",
@@ -46,6 +53,8 @@ def _make_enrollment(creator: User | None = None, code: str = "ORD-PDF001") -> E
         status=EnrollmentStatus.DEPOSITED,
         created_by=creator,
     )
+    _provision_student_account(phone="0903123456", display_name="Nguyễn Văn A")
+    return enrollment
 
 
 class EnrollmentPDFViewTests(TestCase):
@@ -148,6 +157,11 @@ class EnrollmentPDFViewTests(TestCase):
 
         enr = _make_enrollment()
         account = StudentAccount.objects.get(phone=enr.student_phone)
+        # Auto-provision (services._provision_student_account) đã tạo Person
+        # rỗng cho account. Test này muốn verify masking khi có CCCD đầy đủ —
+        # clear Person/Link cũ rồi tạo lại Person có CCCD.
+        AccountPersonLink.objects.filter(account=account).delete()
+        Person.objects.filter(account_links__isnull=True).delete()
         person = Person.objects.create(
             full_name="Nguyễn Văn A",
             id_number="012345678901",

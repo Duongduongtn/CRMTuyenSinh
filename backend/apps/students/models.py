@@ -299,6 +299,13 @@ class AccountPersonLink(models.Model):
                 fields=["account", "person"],
                 name="uniq_account_person",
             ),
+            # Mỗi account tối đa 1 primary Person. Chặn race condition khi 2
+            # convert song song cùng SĐT tạo 2 primary Link (reviewer Z, P1.2).
+            models.UniqueConstraint(
+                fields=["account"],
+                condition=models.Q(is_primary=True),
+                name="uniq_primary_link_per_account",
+            ),
         ]
 
     def __str__(self) -> str:

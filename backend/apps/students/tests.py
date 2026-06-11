@@ -44,8 +44,18 @@ def _make_course():
 
 
 def _make_enrollment(phone: str, code: str = "ORD-AAA001"):
+    """Tạo Enrollment + auto-provision Account/Person/Link.
+
+    Mô phỏng path qua ``convert_lead_to_enrollment`` mà không cần build Lead +
+    Course tươi mỗi test. Auto-provision được di chuyển từ signal sang
+    ``apps.orders.services._provision_student_account`` (Sprint 3 Tuần 7
+    nhánh Z) để bao gói Account + Person + AccountPersonLink trong cùng path
+    business — bypass create model trực tiếp vẫn cần gọi helper đó tay.
+    """
+    from apps.orders.services import _provision_student_account
+
     course = Course.objects.filter(slug="b-mt").first() or _make_course()
-    return Enrollment.objects.create(
+    enrollment = Enrollment.objects.create(
         code=code,
         course=course,
         student_name="Nguyen Van A",
@@ -55,6 +65,8 @@ def _make_enrollment(phone: str, code: str = "ORD-AAA001"):
         deposit_amount=course.deposit_amount,
         status=EnrollmentStatus.PENDING,
     )
+    _provision_student_account(phone=phone, display_name="Nguyen Van A")
+    return enrollment
 
 
 def _link_cccd(phone: str, id_number: str, full_name: str = "Nguyen Van A") -> tuple[StudentAccount, Person]:

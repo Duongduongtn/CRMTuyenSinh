@@ -10,11 +10,7 @@ from rest_framework.test import APIClient
 from apps.courses.models import Course, VehicleClass, VehicleGroup
 from apps.orders.models import Enrollment, EnrollmentStatus
 from apps.students.auth import issue_access_token
-from apps.students.models import (
-    AccountPersonLink,
-    Person,
-    StudentAccount,
-)
+from apps.students.models import Person, StudentAccount
 
 from .models import DocumentType, PersonDocument
 
@@ -49,7 +45,15 @@ def _make_course():
 
 
 def _make_enrollment(phone: str, code: str):
-    return Enrollment.objects.create(
+    """Tạo Enrollment + auto-provision Account (path qua services).
+
+    Sprint 3 Tuần 7 nhánh Z: auto-provision đã chuyển từ signal sang
+    ``apps.orders.services._provision_student_account``. Test bypass create
+    model trực tiếp phải gọi helper đó tay.
+    """
+    from apps.orders.services import _provision_student_account
+
+    enrollment = Enrollment.objects.create(
         code=code,
         course=_make_course() if not Course.objects.exists() else Course.objects.first(),
         student_name="HV Test",
@@ -59,6 +63,8 @@ def _make_enrollment(phone: str, code: str):
         deposit_amount=Decimal("500000"),
         status=EnrollmentStatus.PENDING,
     )
+    _provision_student_account(phone=phone, display_name="HV Test")
+    return enrollment
 
 
 @override_settings(MEDIA_ROOT="/tmp/crm_test_media")
@@ -67,10 +73,12 @@ class UploadMagicBytesTests(TestCase):
         self.client = APIClient()
         self.enr = _make_enrollment("0903111111", "ORD-DOC001")
         self.account = StudentAccount.objects.get(phone="0903111111")
-        self.person = Person.objects.create(full_name="HV Test", id_number="012345678901")
-        AccountPersonLink.objects.create(
-            account=self.account, person=self.person, is_primary=True
-        )
+        # Auto-provision đã tạo Person primary rỗng. Cập nhật CCCD vào đó thay
+        # vì tạo Person+Link mới (vi phạm UniqueConstraint uniq_primary_link_per_account).
+        self.person = Person.objects.get(account_links__account=self.account)
+        self.person.full_name = "HV Test"
+        self.person.id_number = "012345678901"
+        self.person.save(update_fields=["full_name", "id_number", "updated_at"])
         self.doc_type = DocumentType.objects.create(
             code="cccd_front", name="CCCD mặt trước", scope="person", is_required=True
         )
@@ -134,8 +142,11 @@ class FileServeIDORTests(TestCase):
         _make_enrollment("0903222222", "ORD-FS002")
         self.account_a = StudentAccount.objects.get(phone="0903111111")
         self.account_b = StudentAccount.objects.get(phone="0903222222")
-        self.person_a = Person.objects.create(full_name="HV A", id_number="A012345678901")
-        AccountPersonLink.objects.create(account=self.account_a, person=self.person_a, is_primary=True)
+        # Person primary rỗng do auto-provision tạo → cập nhật CCCD vào.
+        self.person_a = Person.objects.get(account_links__account=self.account_a)
+        self.person_a.full_name = "HV A"
+        self.person_a.id_number = "A012345678901"
+        self.person_a.save(update_fields=["full_name", "id_number", "updated_at"])
         self.doc_type = DocumentType.objects.create(
             code="cccd_front", name="CCCD mặt trước", scope="person", is_required=True
         )
@@ -180,10 +191,11 @@ class PersonDocumentIDORTests(TestCase):
         _make_enrollment("0903222222", "ORD-IDOR02")
         self.account_a = StudentAccount.objects.get(phone="0903111111")
         self.account_b = StudentAccount.objects.get(phone="0903222222")
-        self.person_b = Person.objects.create(full_name="HV B", id_number="012345678902")
-        AccountPersonLink.objects.create(
-            account=self.account_b, person=self.person_b, is_primary=True
-        )
+        # Person primary rỗng do auto-provision tạo → cập nhật CCCD vào.
+        self.person_b = Person.objects.get(account_links__account=self.account_b)
+        self.person_b.full_name = "HV B"
+        self.person_b.id_number = "012345678902"
+        self.person_b.save(update_fields=["full_name", "id_number", "updated_at"])
         self.doc_type = DocumentType.objects.create(
             code="cccd_front", name="CCCD mặt trước", scope="person", is_required=True
         )

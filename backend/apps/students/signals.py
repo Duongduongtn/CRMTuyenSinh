@@ -1,24 +1,16 @@
-"""Auto-provision StudentAccount khi Enrollment được tạo.
+"""Signals app students.
 
-Pattern theo memory [[student-auth-flow]]: sale chốt đơn → tạo Enrollment →
-hệ thống tự tạo StudentAccount cho SĐT (nếu chưa có) để HV login được ngay.
+Auto-provision trước đây ở đây chỉ tạo ``StudentAccount`` — thiếu ``Person`` +
+``AccountPersonLink`` khiến PWA login query qua ``account_links__account`` trả
+empty và HV không bao giờ pass auth (xem ``apps.students.views.login`` và
+``_verify_last6_cccd``).
+
+Sprint 3 Tuần 7 nhánh Z (2026-06-12): chuyển logic sang
+``apps.orders.services._provision_student_account`` để có:
+- Đầy đủ 3 model (Account + Person + Link primary).
+- Trong cùng transaction convert, atomic với việc tạo Enrollment.
+- Dễ test + debug hơn signal nested post_save.
+
+File giữ lại (rỗng) để ``apps.py:ready`` import không vỡ; xóa file sẽ kéo
+theo migration không liên quan.
 """
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
-from apps.orders.models import Enrollment
-
-from .models import StudentAccount, normalize_phone
-
-
-@receiver(post_save, sender=Enrollment)
-def auto_provision_student_account(sender, instance: Enrollment, created: bool, **kwargs):
-    if not created or not instance.student_phone:
-        return
-    phone = normalize_phone(instance.student_phone)
-    if not phone:
-        return
-    StudentAccount.objects.get_or_create(
-        phone=phone,
-        defaults={"display_name": instance.student_name or ""},
-    )
