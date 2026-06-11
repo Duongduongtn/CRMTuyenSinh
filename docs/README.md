@@ -21,6 +21,8 @@ Backend Django + PostgreSQL + Celery + Redis + Casso webhook.
 
 ### 3. Plan triển khai
 - **[03-phase1-plan.md](./03-phase1-plan.md)** — Plan chi tiết v1 (7-8 tuần, 3 sprint), tech stack, cấu trúc thư mục, sprint task, acceptance criteria, rủi ro, setup commands.
+- **[05-sprint3-soft-launch.md](./05-sprint3-soft-launch.md)** — Checklist Sprint 3 Tuần 7: lấy 4 nhóm key prod, paste `.env.prod`, smoke E2E 5 step, monitoring, rollback.
+- **[06-cloudflare-pages-fe-public.md](./06-cloudflare-pages-fe-public.md)** — Setup Cloudflare Pages cho FE public landing (hybrid SSR via nitro `cloudflare-pages` preset), custom domain `trungtamthanhdat.com`.
 
 ### 4. HTML wireframe mở browser
 - **[wireframes-html/index.html](./wireframes-html/index.html)** — Trang chủ (minimalist hiện đại, trắng + xanh lá).
