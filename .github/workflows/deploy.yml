@@ -283,32 +283,6 @@ jobs:
             git reset --hard origin/main
           fi
 
-          # Bootstrap FERNET_SECRET (idempotent). Lan dau .env.prod con placeholder
-          # `REPLACE_WITH_FERNET_KEY_44_CHARS` -> sinh key thuc va sed thay. Lan
-          # sau key da co -> skip. Khi rotate, user can xoa tay dong nay roi re-run.
-          ENV_FILE=/var/www/thanhdat/infra/.env.prod
-          if grep -qE '^FERNET_SECRET=(REPLACE_WITH_FERNET_KEY_44_CHARS|)$' "$ENV_FILE" 2>/dev/null \
-             || ! grep -q '^FERNET_SECRET=' "$ENV_FILE" 2>/dev/null; then
-            echo "Bootstrap: sinh FERNET_SECRET moi cho prod (lan dau setup)."
-            # openssl rand -base64 32 -> 44 char (k.cuc URL-safe). Convert `+/` -> `-_`
-            # de match dung URL-safe base64 format ma Fernet yeu cau.
-            NEW_KEY=$(openssl rand -base64 32 | tr '+/' '-_')
-            if [ -z "$NEW_KEY" ] || [ "${#NEW_KEY}" -lt 40 ]; then
-              echo "FATAL: openssl khong sinh duoc key 44 char URL-safe base64."
-              exit 1
-            fi
-            if grep -q '^FERNET_SECRET=' "$ENV_FILE"; then
-              # Dung delimiter `|` vi key co the chua `/+` da convert sang `-_` (van safe).
-              sed -i "s|^FERNET_SECRET=.*|FERNET_SECRET=${NEW_KEY}|" "$ENV_FILE"
-            else
-              echo "FERNET_SECRET=${NEW_KEY}" >> "$ENV_FILE"
-            fi
-            echo "FERNET_SECRET da set. BACKUP NGAY: ssh root@VPS grep ^FERNET_SECRET /var/www/thanhdat/infra/.env.prod"
-            echo "Mat key nay = mat toan bo IntegrationCredential (Casso/ZNS/FB secrets) trong DB."
-          else
-            echo "FERNET_SECRET da co san, skip bootstrap."
-          fi
-
           # Tao thu muc bind mount neu chua co.
           mkdir -p /var/www/thanhdat/backend-media /var/www/thanhdat/backend-static
           mkdir -p /var/www/thanhdat/frontend-crm/dist
