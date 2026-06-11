@@ -129,6 +129,28 @@ class IntegrationProviderUpdateView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Bảo đảm Fernet cipher build được trước khi encrypt. Khi FERNET_SECRET
+        # chưa cấu hình hoặc đang dùng dev default, raise ImproperlyConfigured
+        # → trả 503 với hướng dẫn thay vì 500 crash.
+        from django.core.exceptions import ImproperlyConfigured
+
+        from .crypto import get_cipher, reset_cipher_cache
+
+        try:
+            reset_cipher_cache()
+            get_cipher()
+        except ImproperlyConfigured as exc:
+            return Response(
+                {
+                    "detail": (
+                        "FERNET_SECRET chưa cấu hình ở prod. Cấp key qua docs/08 §2 "
+                        "rồi restart backend."
+                    ),
+                    "hint": str(exc),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         serializer = IntegrationProviderUpdateSerializer(
             data=request.data, provider=provider
         )
