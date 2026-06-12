@@ -307,6 +307,25 @@ jobs:
           # FE public: docker service mount .output (server + public).
           mkdir -p /var/www/thanhdat/frontend-public/.output
 
+          # ----- Step 2.5 (AE4): Verify nginx config truoc khi rebuild stack.
+          # Bao ve truong hop ai do SSH chinh /etc/nginx tay co syntax sai giua
+          # cac deploy -> reload nginx sau day se fail + site down. Chay test
+          # roi log ket qua, KHONG block deploy backend (nginx host-level rieng
+          # voi docker stack, chinh tay rui ro thap).
+          echo "=== Step 2.5: nginx -t pre-check (warn-only) ==="
+          # KHONG dung sudo de consistency voi step Bootstrap SSL apex duoi (dong
+          # 459, 544) — SSH user da co quyen chay nginx CLI khong sudo (root or
+          # group nginx). Neu khong co thi command -v fail -> WARN branch.
+          if command -v nginx >/dev/null 2>&1; then
+            if nginx -t 2>&1; then
+              echo "nginx config OK."
+            else
+              echo "WARN: nginx -t fail. Deploy backend tiep tuc, nhung KHONG reload nginx tu dong."
+            fi
+          else
+            echo "WARN: nginx CLI khong co tren host (system service chua install?)."
+          fi
+
           cd infra
 
           # ----- Step 3: Ensure base services (db, redis) up truoc khi rebuild
@@ -319,8 +338,19 @@ jobs:
           # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
           docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
 
-          echo "=== Step 5: Migrate DB (run --rm backend container tam) ==="
-          docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm backend python manage.py migrate --noinput
+          # ----- Step 5 (AE4): Migrate DB voi log tee vao file timestamp tren
+          # host. Khi can audit schema change (vd debug data migration) co the
+          # tail nhanh thay vi grep `docker compose logs`. Pipefail (set -o
+          # pipefail tu set -euo pipefail dau script) catch exit code cua
+          # migrate command, set -e exit script neu fail.
+          # Path home directory de SSH user co quyen ghi khong can sudo. Sprint
+          # 4+ them logrotate /etc/logrotate.d/thanhdat-migrate (keep 30 ngay).
+          MIGRATE_LOG_DIR="$HOME/migrate-logs"
+          mkdir -p "$MIGRATE_LOG_DIR"
+          MIGRATE_LOG="$MIGRATE_LOG_DIR/migrate-$(date +%Y%m%d-%H%M%S).log"
+          echo "=== Step 5: Migrate DB (run --rm backend container tam, log: $MIGRATE_LOG) ==="
+          docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm backend python manage.py migrate --noinput 2>&1 | tee -a "$MIGRATE_LOG"
+          echo "Migrate log luu tai: $MIGRATE_LOG"
 
           # ----- Step 6: FORCE-RECREATE 3 service share image thanhdat-backend:latest.
           # `up -d` mac dinh KHONG detect image hash thay doi khi rebuild cung tag

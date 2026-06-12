@@ -201,7 +201,7 @@ def _provision_student_account(
     - SEC.P1.2 AuditLog cho Link.
     - BE/SEC.P2 mask phone trong log.
     """
-    from django.db import IntegrityError
+    from django.db import DatabaseError, IntegrityError
 
     from apps.core.models import AuditLog
     from apps.students.models import (
@@ -294,14 +294,30 @@ def _provision_student_account(
             )
     except IntegrityError:
         # Race: 2 convert song song cùng SĐT đã tạo primary trước → retry get
-        # silent. Savepoint đã rollback phần partial.
+        # silent. Savepoint đã rollback phần partial. KHÔNG raise — convert
+        # outer vẫn commit (Enrollment + Lead).
         logger.warning(
             "Auto-provision race condition cho phone=%s — primary Link đã tồn "
             "tại từ convert song song. Bỏ qua.",
             masked,
         )
+    except DatabaseError as exc:
+        # Lỗi DB nghiêm trọng (OperationalError = connection drop / deadlock,
+        # ProgrammingError = SQL syntax bug, DataError = value out of range).
+        # KHÁC IntegrityError ở chỗ KHÔNG phải race lành tính — DB có thể đang
+        # unhealthy. Log ERROR (cao hơn warning) để monitoring/Sentry alert
+        # ops. KHÔNG raise vì intent "thà có Enrollment không Account": vỡ
+        # outer convert làm sale phải retry toàn flow.
+        logger.exception(
+            "Auto-provision DatabaseError cho phone=%s (%s): %s. DB có thể "
+            "đang unhealthy, cần kiểm tra ngay.",
+            masked,
+            type(exc).__name__,
+            exc,
+        )
     except Exception as exc:  # noqa: BLE001
-        # Auto-provision không được làm vỡ convert. Log + savepoint rollback.
+        # Lỗi business logic / không phải DB. Auto-provision không được làm
+        # vỡ convert. Log + savepoint rollback.
         logger.exception(
             "Auto-provision StudentAccount lỗi cho phone=%s: %s", masked, exc
         )

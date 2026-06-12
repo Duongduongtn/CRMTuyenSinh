@@ -319,6 +319,45 @@ class ConvertLeadTests(TestCase):
         link_count = AccountPersonLink.objects.count()
         self.assertEqual(person_count, link_count)
 
+    def test_database_error_in_provision_logged_as_error_but_does_not_break_convert(self):
+        """AE4 BE: DatabaseError (non-Integrity, vd OperationalError connection
+        drop) trong provision phải log ERROR (cao hơn warning) để monitoring
+        alert, NHƯNG KHÔNG raise — convert outer (Enrollment + Lead) vẫn commit."""
+        from unittest.mock import patch
+
+        from django.db import OperationalError
+
+        lead = self._make_lead(name="HV DBError", phone="0966777888")
+
+        with patch(
+            "apps.students.models.StudentAccount.objects.get_or_create",
+            side_effect=OperationalError("connection drop"),
+        ):
+            with self.assertLogs("apps.orders", level="ERROR") as cm:
+                result = convert_lead_to_enrollment(
+                    lead_id=lead.id,
+                    course_id=self.course.id,
+                    user=self.sale_user,
+                )
+
+        # Enrollment vẫn tạo (intent "thà có Enrollment không Account").
+        self.assertTrue(result.created)
+        self.assertTrue(
+            Enrollment.objects.filter(code=result.enrollment.code).exists()
+        )
+        # Log ERROR (không phải WARNING).
+        self.assertTrue(
+            any(
+                "DatabaseError" in record and "OperationalError" in record
+                for record in cm.output
+            ),
+            f"Phải log ERROR với DatabaseError + OperationalError: {cm.output}",
+        )
+        # Account KHÔNG tạo (provision đã raise OperationalError).
+        self.assertFalse(
+            StudentAccount.objects.filter(phone="0966777888").exists()
+        )
+
     def test_phone_collision_skips_creating_person_for_existing_account_with_cccd(self):
         """Reviewer Z SEC.P1.1: account đã có Person id_number != "" + có lead
         mới được convert với cùng SĐT → KHÔNG tạo Person rỗng + ghi AuditLog
