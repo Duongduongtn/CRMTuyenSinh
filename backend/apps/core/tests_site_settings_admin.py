@@ -257,3 +257,116 @@ class SiteSettingsAdminAPITests(TestCase):
         self.assertEqual(data["brand_name"], payload["brand_name"])
         self.assertEqual(data["address_line"], payload["address_line"])
         self.assertEqual(data["slogan"], payload["slogan"])
+
+    # ----- Audit log full old → new (NĐ 13/2023) -----
+
+    def test_patch_audit_logs_old_and_new_for_non_sensitive_field(self):
+        """Field non-sensitive (brand_name) phải log cả old + new raw value
+        để truy vết được \"đổi từ X sang Y\", không chỉ tên field (NĐ 13/2023)."""
+        # Seed brand_name cũ rõ ràng.
+        site = SiteSettings.get_solo()
+        site.brand_name = "Trung tâm cũ"
+        site.save()
+
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={"brand_name": "Trung tâm mới"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.changes["fields_changed"], ["brand_name"])
+        self.assertEqual(log.changes["old"]["brand_name"], "Trung tâm cũ")
+        self.assertEqual(log.changes["new"]["brand_name"], "Trung tâm mới")
+
+    def test_patch_audit_sensitive_field_only_masked_in_old_new(self):
+        """Field sensitive (bank_account_number) trong `old`/`new` chỉ chứa
+        giá trị mask, KHÔNG plaintext kể cả ở key mới `old`/`new`."""
+        site = SiteSettings.get_solo()
+        site.bank_account_number = "11112222333344"
+        site.save()
+
+        self.client.force_authenticate(self.superuser)
+        self.client.patch(
+            reverse("admin-site-settings"),
+            data={"bank_account_number": "99998888777766"},
+            format="json",
+        )
+
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertIsNotNone(log)
+        # Old + new đều mask, không plaintext.
+        self.assertEqual(log.changes["old"]["bank_account_number"][-4:], "3344")
+        self.assertEqual(log.changes["new"]["bank_account_number"][-4:], "7766")
+        self.assertNotIn("11112222333344", str(log.changes))
+        self.assertNotIn("99998888777766", str(log.changes))
+
+    def test_patch_audit_tax_code_only_masked(self):
+        """Mã số thuế là dữ liệu định danh gián tiếp (NĐ 13/2023) — chỉ mask
+        4 số cuối trong audit log, không leak plaintext."""
+        site = SiteSettings.get_solo()
+        site.tax_code = "0123456789"
+        site.save()
+
+        self.client.force_authenticate(self.superuser)
+        self.client.patch(
+            reverse("admin-site-settings"),
+            data={"tax_code": "9876543210"},
+            format="json",
+        )
+
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.changes["old"]["tax_code"][-4:], "6789")
+        self.assertEqual(log.changes["new"]["tax_code"][-4:], "3210")
+        self.assertNotIn("0123456789", str(log.changes))
+        self.assertNotIn("9876543210", str(log.changes))
+
+    def test_patch_audit_serializes_decimal_field(self):
+        """DecimalField (map_lat) phải JSON-serialize được vào AuditLog.changes."""
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={"map_lat": "10.7626001"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertIsNotNone(log)
+        # Old là None (mặc định), new là Decimal stringified.
+        self.assertIsNone(log.changes["old"]["map_lat"])
+        self.assertEqual(log.changes["new"]["map_lat"], "10.7626001")
+
+    def test_patch_uses_select_for_update_inside_atomic(self):
+        """select_for_update phải được gọi để lock row → chống last-write-wins.
+
+        Postgres only (SQLite skip vì backend không support row-level lock).
+        Test bằng spy queryset method để verify code path đi qua, không phụ
+        thuộc backend DB.
+        """
+        from unittest.mock import patch as mock_patch
+
+        # Spy select_for_update — wraps để vẫn chạy thực, chỉ verify được gọi.
+        original_sfu = SiteSettings.objects.select_for_update
+
+        with mock_patch.object(
+            SiteSettings.objects.__class__,
+            "select_for_update",
+            autospec=True,
+            side_effect=lambda self, *args, **kwargs: original_sfu(*args, **kwargs),
+        ) as spy:
+            self.client.force_authenticate(self.superuser)
+            resp = self.client.patch(
+                reverse("admin-site-settings"),
+                data={"brand_name": "X"},
+                format="json",
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(
+                spy.called,
+                "select_for_update phải được gọi trong patch để lock row.",
+            )

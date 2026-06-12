@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .integrations import INTEGRATION_SCHEMA, invalidate
+from .mixins import apply_audited_patch_singleton
 from .models import AuditLog, IntegrationCredential, SiteSettings
 from .serializers import (
     SITE_SETTINGS_ADMIN_EDITABLE_FIELDS,
@@ -57,8 +58,9 @@ class SiteSettingsAdminView(APIView):
 
     GET: trả toàn bộ field text/number + URL ảnh (read-only).
     PATCH: partial update field trong `SITE_SETTINGS_ADMIN_EDITABLE_FIELDS`.
-      - Ghi AuditLog 1 entry liệt kê field đã đổi (KHÔNG log full giá trị bank
-        info — chỉ log tên field + giá trị mới đã mask nếu là bank_account_number).
+      - select_for_update lock row → race-safe khi 2 superuser PATCH đồng thời.
+      - Ghi AuditLog với cả old + new value (NĐ 13/2023). Sensitive field (số
+        TK ngân hàng) mask 4 số cuối, KHÔNG plaintext.
       - Bỏ qua key lạ (không raise) để FE gửi extra field không vỡ.
     """
 
@@ -71,55 +73,25 @@ class SiteSettingsAdminView(APIView):
         )
 
     def patch(self, request):
-        site = SiteSettings.get_solo()
-
-        # Filter body chỉ giữ field editable (bỏ qua key lạ + image fields).
-        editable = set(SITE_SETTINGS_ADMIN_EDITABLE_FIELDS)
-        raw = request.data if isinstance(request.data, dict) else {}
-        payload = {k: v for k, v in raw.items() if k in editable}
-
-        if not payload:
+        try:
+            instance, _changed = apply_audited_patch_singleton(
+                model=SiteSettings,
+                serializer_cls=SiteSettingsAdminSerializer,
+                request=request,
+                editable_fields=SITE_SETTINGS_ADMIN_EDITABLE_FIELDS,
+                audit_target_model="SiteSettings",
+                sensitive_masks={
+                    "bank_account_number": _mask_bank_account,
+                    # NĐ 13/2023: MST DN/CN là dữ liệu định danh gián tiếp (kết
+                    # hợp với STK có thể cross-reference GDT) — chỉ mask 4 cuối.
+                    "tax_code": _mask_bank_account,
+                },
+                ip_resolver=_get_client_ip,
+            )
+        except ValueError:
             return Response(
                 {"detail": "Không có field nào hợp lệ để cập nhật."},
                 status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = SiteSettingsAdminSerializer(
-            site, data=payload, partial=True, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-
-        # So sánh trước/sau để biết field nào thực sự đổi (giảm noise audit).
-        old_values = {f: getattr(site, f) for f in payload.keys()}
-        instance = serializer.save()
-
-        fields_changed: list[str] = []
-        for f in payload.keys():
-            new_val = getattr(instance, f)
-            if new_val != old_values[f]:
-                fields_changed.append(f)
-
-        if fields_changed:
-            audit_changes: dict[str, object] = {"fields_changed": fields_changed}
-            # Ghi cả mask CŨ + MỚI cho bank_account_number để truy được superuser
-            # đổi từ STK X sang STK Y (NĐ 13/2023 audit tài chính). KHÔNG log
-            # plaintext, chỉ 4 số cuối.
-            if "bank_account_number" in fields_changed:
-                audit_changes["bank_account_number_old_masked"] = _mask_bank_account(
-                    old_values["bank_account_number"]
-                )
-                audit_changes["bank_account_number_new_masked"] = _mask_bank_account(
-                    instance.bank_account_number
-                )
-
-            AuditLog.objects.create(
-                user=request.user if request.user.is_authenticated else None,
-                action=AuditLog.Action.UPDATE,
-                target_model="SiteSettings",
-                target_id=str(instance.pk),
-                changes=audit_changes,
-                ip_address=_get_client_ip(request),
-                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
             )
 
         return Response(

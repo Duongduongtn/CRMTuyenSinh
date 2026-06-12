@@ -8,7 +8,7 @@
  * Ảnh (logo/favicon/og_image) tạm thời chỉnh trong Django admin tới khi build
  * upload UI — page hiển thị note rõ ràng.
  */
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
 import {
@@ -274,6 +274,37 @@ const firstDirtySiteSettingsSection = computed<SectionKey | null>(() => {
 const currentSection = computed(
   () => SECTIONS.find((s) => s.key === activeSection.value) ?? SECTIONS[0],
 )
+
+function isSectionDirty(key: SectionKey): boolean {
+  const fields = SECTION_FIELDS[key] ?? []
+  return fields.some((f) => draft.value[f] !== undefined)
+}
+
+// Keyboard nav giữa các tab theo WAI-ARIA APG Tabs pattern: ← → di chuyển +
+// activate tab kế tiếp; Home / End nhảy về đầu / cuối; focus theo activeSection
+// để screen reader đọc đúng label tab mới.
+function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
+  const total = SECTIONS.length
+  let nextIndex = -1
+  if (event.key === 'ArrowRight') {
+    nextIndex = (currentIndex + 1) % total
+  } else if (event.key === 'ArrowLeft') {
+    nextIndex = (currentIndex - 1 + total) % total
+  } else if (event.key === 'Home') {
+    nextIndex = 0
+  } else if (event.key === 'End') {
+    nextIndex = total - 1
+  } else {
+    return
+  }
+  event.preventDefault()
+  const nextKey = SECTIONS[nextIndex].key
+  activeSection.value = nextKey
+  nextTick(() => {
+    const el = document.getElementById(`tab-${nextKey}`)
+    el?.focus()
+  })
+}
 </script>
 
 <template>
@@ -330,8 +361,8 @@ const currentSection = computed(
       </div>
     </Card>
 
-    <!-- TAB SWITCHER -->
-    <nav role="tablist" aria-label="Chọn nhóm cấu hình" class="-mb-px flex flex-wrap items-center gap-1 border-b border-line-soft">
+    <!-- TAB SWITCHER (WAI-ARIA APG Tabs pattern) -->
+    <div role="tablist" aria-label="Chọn nhóm cấu hình" class="-mb-px flex flex-wrap items-center gap-1 border-b border-line-soft">
       <template v-for="(sec, index) in SECTIONS" :key="sec.key">
         <!-- Divider phân nhóm Cấu hình ↔ Tích hợp (trước tab integration đầu tiên). -->
         <span
@@ -341,26 +372,32 @@ const currentSection = computed(
         />
         <button
           type="button"
-          :role="'tab'"
+          role="tab"
+          :id="`tab-${sec.key}`"
           :aria-selected="activeSection === sec.key"
+          :aria-controls="`panel-${sec.key}`"
+          :tabindex="activeSection === sec.key ? 0 : -1"
           :class="[
-            'inline-flex items-center gap-2 px-4 py-3 text-body font-medium transition-colors duration-200',
+            'inline-flex items-center gap-2 px-4 py-3 text-body font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded-sm',
             activeSection === sec.key
               ? 'text-brand-800 border-b-2 border-brand-700'
               : 'text-ink-60 hover:text-ink border-b-2 border-transparent',
           ]"
           @click="activeSection = sec.key"
+          @keydown="onTabKeydown($event, index)"
         >
           <component :is="sec.icon" :size="18" :weight="activeSection === sec.key ? 'duotone' : 'regular'" />
           {{ sec.label }}
-          <span
-            v-if="(SECTION_FIELDS[sec.key] ?? []).some((f) => draft[f] !== undefined)"
-            class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-600"
-            aria-hidden="true"
-          />
+          <template v-if="isSectionDirty(sec.key)">
+            <span
+              class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-600"
+              aria-hidden="true"
+            />
+            <span class="sr-only">, có thay đổi chưa lưu</span>
+          </template>
         </button>
       </template>
-    </nav>
+    </div>
 
     <!-- LOADING / ERROR -->
     <div v-if="settingsQuery.isLoading.value" class="flex items-center justify-center py-16">
@@ -375,6 +412,15 @@ const currentSection = computed(
     />
 
     <section v-else-if="current" class="flex flex-col gap-6 animate-fade-in motion-reduce:animate-none">
+      <!-- TABPANEL: nội dung 1 tab. KHÔNG tabindex=0 vì panel chứa focusable
+           children (Input/Select/Textarea) — WAI-ARIA APG khuyến cáo bỏ tab
+           stop thừa khi panel đã có focusable content. -->
+      <div
+        :id="`panel-${activeSection}`"
+        role="tabpanel"
+        :aria-labelledby="`tab-${activeSection}`"
+        class="flex flex-col gap-6"
+      >
       <!-- Section intro -->
       <div class="flex flex-col gap-1">
         <div class="flex items-center gap-2 text-headline font-semibold text-ink">
@@ -656,6 +702,8 @@ const currentSection = computed(
           :provider="activeSection as 'casso' | 'fb'"
         />
       </template>
+      </div>
+      <!-- /TABPANEL -->
 
       <!-- SAVE BAR (chỉ cho SiteSettings tabs — integration panel có save bar nội bộ) -->
       <div
