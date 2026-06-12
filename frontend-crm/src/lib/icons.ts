@@ -59,4 +59,7 @@ export {
   PhShareNetwork as ShareNetwork,
   PhGear as Gear,
   PhFileText as FileText,
+  PhImage as Image,
+  PhCloudArrowUp as CloudArrowUp,
+  PhTrash as Trash,
 } from '@phosphor-icons/vue'

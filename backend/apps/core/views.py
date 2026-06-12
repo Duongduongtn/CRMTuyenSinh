@@ -9,11 +9,21 @@ from __future__ import annotations
 import logging
 
 from django.conf import settings as django_settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.storage import default_storage
+from django.db import transaction
 from rest_framework import status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .image_uploads import (
+    IMAGE_FIELD_SPECS,
+    safe_image_filename,
+    to_audit_value,
+    validate_uploaded_image,
+)
 from .integrations import INTEGRATION_SCHEMA, invalidate
 from .mixins import apply_audited_patch_singleton
 from .models import AuditLog, IntegrationCredential, SiteSettings
@@ -114,6 +124,158 @@ class SiteSettingsAdminView(APIView):
 
         return Response(
             SiteSettingsAdminSerializer(instance, context={"request": request}).data
+        )
+
+
+class SiteSettingsBrandImageView(APIView):
+    """POST + DELETE `/api/admin/site-settings/upload-image/`.
+
+    POST multipart: upload 1 ảnh (logo / favicon / og_image) đè file cũ.
+    DELETE JSON {"field": "logo"}: xóa ảnh hiện tại + reset field.
+
+    Validation server-side:
+    - field nằm trong enum (logo / favicon / og_image).
+    - size <= spec.max_bytes (logo 2MB, favicon 512KB, og_image 5MB).
+    - PIL verify true image (chống upload php/sh giả ext .png).
+    - format nằm trong allowed_mime per-field.
+    - dimension trong bound (logo 256-4096, favicon 16-512, og_image 600x315-4096).
+
+    File cũ xóa SAU commit (`transaction.on_commit`) để tránh orphan khi DB
+    rollback nhưng file đã delete. Tên file mới sinh UUID v4 unpredictable.
+
+    Audit log: 1 entry UPDATE/DELETE với fields_changed + old/new là tên file
+    tương đối (vd ``brand/logo_abc123.png``), không sensitive.
+    """
+
+    permission_classes = [IsSuperUser]
+    # MultiPart + Form cho POST upload; JSON cho DELETE (cũng accept query param).
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def post(self, request):
+        field = request.data.get("field", "")
+        if field not in IMAGE_FIELD_SPECS:
+            return Response(
+                {
+                    "detail": (
+                        f"Field ảnh không hợp lệ. Chỉ chấp nhận: "
+                        f"{', '.join(sorted(IMAGE_FIELD_SPECS))}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        upload = request.FILES.get("image")
+        if upload is None:
+            return Response(
+                {"detail": "Thiếu file ảnh trong body multipart (key 'image')."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            detected_format = validate_uploaded_image(field, upload)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": "; ".join(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        new_name = safe_image_filename(field, detected_format)
+
+        with transaction.atomic():
+            site = SiteSettings.objects.select_for_update().get_or_create(
+                pk=getattr(SiteSettings, "singleton_instance_id", 1)
+            )[0]
+            old_file = getattr(site, field)
+            old_value = to_audit_value(old_file)
+
+            # ImageField.save() lưu file qua default_storage + set field value
+            # + save model. Tên file truyền vào sẽ qua get_available_name của
+            # storage (default đảm bảo unique trong directory).
+            getattr(site, field).save(new_name, upload, save=True)
+            new_value = to_audit_value(getattr(site, field))
+
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action=AuditLog.Action.UPDATE,
+                target_model="SiteSettings",
+                target_id=str(site.pk),
+                changes={
+                    "fields_changed": [field],
+                    "old": {field: old_value},
+                    "new": {field: new_value},
+                },
+                ip_address=_get_client_ip(request),
+                user_agent=request.META.get(
+                    "HTTP_USER_AGENT", ""
+                )[: AuditLog._meta.get_field("user_agent").max_length],
+            )
+
+            # Xóa file cũ SAU khi commit để tránh DB rollback nhưng file đã
+            # delete (orphan ngược). Storage.delete() no-op nếu file không tồn
+            # tại (default_storage local + S3 đều safe).
+            if old_value and old_value != new_value:
+                transaction.on_commit(
+                    lambda old=old_value: default_storage.delete(old)
+                )
+
+        return Response(
+            SiteSettingsAdminSerializer(site, context={"request": request}).data
+        )
+
+    def delete(self, request):
+        # DELETE accept body JSON `{"field": "logo"}` only (KHÔNG query param).
+        # Lý do consistency với PATCH/POST + tránh field tên ảnh xuất hiện trên
+        # access log/browser history/referer.
+        field = request.data.get("field", "") if isinstance(request.data, dict) else ""
+        if field not in IMAGE_FIELD_SPECS:
+            return Response(
+                {
+                    "detail": (
+                        f"Field ảnh không hợp lệ. Chỉ chấp nhận: "
+                        f"{', '.join(sorted(IMAGE_FIELD_SPECS))}."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            site = SiteSettings.objects.select_for_update().get_or_create(
+                pk=getattr(SiteSettings, "singleton_instance_id", 1)
+            )[0]
+            old_file = getattr(site, field)
+            old_value = to_audit_value(old_file)
+
+            if not old_value:
+                # Idempotent: xóa khi đã rỗng → 200 với data hiện tại, không
+                # ghi audit (không có thay đổi).
+                return Response(
+                    SiteSettingsAdminSerializer(
+                        site, context={"request": request}
+                    ).data
+                )
+
+            # ImageField.delete(save=True) xóa file qua storage + set field
+            # về null + save model.
+            getattr(site, field).delete(save=True)
+
+            AuditLog.objects.create(
+                user=request.user if request.user.is_authenticated else None,
+                action=AuditLog.Action.DELETE,
+                target_model="SiteSettings",
+                target_id=str(site.pk),
+                changes={
+                    "fields_changed": [field],
+                    "old": {field: old_value},
+                    "new": {field: ""},
+                },
+                ip_address=_get_client_ip(request),
+                user_agent=request.META.get(
+                    "HTTP_USER_AGENT", ""
+                )[: AuditLog._meta.get_field("user_agent").max_length],
+            )
+
+        return Response(
+            SiteSettingsAdminSerializer(site, context={"request": request}).data
         )
 
 

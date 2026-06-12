@@ -5,6 +5,7 @@ from .views import (
     IntegrationListView,
     IntegrationProviderUpdateView,
     SiteSettingsAdminView,
+    SiteSettingsBrandImageView,
     SiteSettingsPublicView,
 )
 
@@ -15,6 +16,11 @@ urlpatterns = [
         "admin/site-settings/",
         SiteSettingsAdminView.as_view(),
         name="admin-site-settings",
+    ),
+    path(
+        "admin/site-settings/upload-image/",
+        SiteSettingsBrandImageView.as_view(),
+        name="admin-site-settings-upload-image",
     ),
     # Admin: quản lý credential các nhóm tích hợp (superuser only).
     path(

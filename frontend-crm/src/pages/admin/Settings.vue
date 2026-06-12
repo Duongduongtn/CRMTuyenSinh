@@ -8,7 +8,7 @@
  * Ảnh (logo/favicon/og_image) tạm thời chỉnh trong Django admin tới khi build
  * upload UI: page hiển thị note rõ ràng.
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
 import {
@@ -21,7 +21,6 @@ import {
   Globe,
   ChartBar,
   FloppyDisk,
-  Info,
   ArrowsClockwise,
   Check,
   Warning,
@@ -36,6 +35,7 @@ import Select from '@/components/ui/Select.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import IntegrationProviderPanel from '@/components/admin/IntegrationProviderPanel.vue'
+import BrandImageUpload from '@/components/admin/BrandImageUpload.vue'
 import {
   fetchSiteSettingsAdmin,
   updateSiteSettingsAdmin,
@@ -292,6 +292,21 @@ function isSectionDirty(key: SectionKey): boolean {
   return fields.some((f) => draft.value[f] !== undefined)
 }
 
+// Chặn drop file ngoài drop-zone trong toàn page Settings: tránh browser
+// navigate đi xem ảnh (mất state draft + tab). preventDefault dragover bắt
+// buộc để event drop fire (nếu không default behavior là "cancel drop").
+function preventGlobalDrop(event: DragEvent) {
+  event.preventDefault()
+}
+onMounted(() => {
+  window.addEventListener('dragover', preventGlobalDrop)
+  window.addEventListener('drop', preventGlobalDrop)
+})
+onUnmounted(() => {
+  window.removeEventListener('dragover', preventGlobalDrop)
+  window.removeEventListener('drop', preventGlobalDrop)
+})
+
 function onTabClick(key: SectionKey) {
   focusedSection.value = key
   activeSection.value = key
@@ -373,26 +388,6 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
         </button>
       </div>
     </header>
-
-    <!-- NOTE: image upload tạm chỉnh Django admin (chỉ hiện ở nhóm SiteSettings) -->
-    <Card v-if="!isIntegrationTab" class="border-info/30 bg-info-soft/40 px-5 py-4">
-      <div class="flex items-start gap-3">
-        <Info :size="20" weight="duotone" class="mt-0.5 shrink-0 text-info" />
-        <div class="text-body leading-relaxed text-ink-60">
-          <p class="font-medium text-ink">Tải lên hình ảnh thương hiệu</p>
-          <p class="mt-1">
-            Logo, favicon và ảnh chia sẻ mạng xã hội tạm thời cập nhật trong
-            <a
-              href="/django-admin/core/sitesettings/"
-              target="_blank"
-              rel="noopener"
-              class="font-medium text-brand-700 underline-offset-4 hover:underline"
-            >Django admin · Thông tin trung tâm</a>.
-            Giao diện tải lên trực tiếp trong CRM sẽ bổ sung ở phiên bản kế tiếp.
-          </p>
-        </div>
-      </div>
-    </Card>
 
     <!-- TAB SWITCHER (WAI-ARIA APG Tabs pattern) -->
     <!-- Hint ẩn cho screen reader: tab integration cần Enter/Space để activate. -->
@@ -495,7 +490,34 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
       </Card>
 
       <!-- SECTION: BRAND -->
-      <Card v-else-if="activeSection === 'brand'" class="space-y-5">
+      <div v-else-if="activeSection === 'brand'" class="space-y-5">
+        <!-- 3 ảnh brand: logo + favicon + og_image. Mỗi ảnh 1 Card riêng để
+             visual tách bạch (spec khác nhau). Upload qua API multipart, KHÔNG
+             gộp PATCH JSON (file binary). -->
+        <Card class="space-y-3">
+          <BrandImageUpload
+            field="logo"
+            :current-url="current?.logo_url ?? ''"
+            @uploaded="(d) => queryClient.setQueryData(['site-settings-admin'], d)"
+          />
+        </Card>
+        <Card class="space-y-3">
+          <BrandImageUpload
+            field="favicon"
+            :current-url="current?.favicon_url ?? ''"
+            @uploaded="(d) => queryClient.setQueryData(['site-settings-admin'], d)"
+          />
+        </Card>
+        <Card class="space-y-3">
+          <BrandImageUpload
+            field="og_image"
+            :current-url="current?.og_image_url ?? ''"
+            @uploaded="(d) => queryClient.setQueryData(['site-settings-admin'], d)"
+          />
+        </Card>
+      </div>
+
+      <Card v-if="activeSection === 'brand'" class="space-y-5">
         <Input
           label="Tên trung tâm"
           required
