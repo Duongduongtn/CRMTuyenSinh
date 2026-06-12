@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * Trang Cài đặt — chỉnh full SiteSettings (brand, contact, social, bank, SEO, stats).
+ * Trang Cài đặt: chỉnh full SiteSettings (brand, contact, social, bank, SEO, stats).
  *
  * 6 section ngang dạng tab, mỗi section là 1 nhóm field. Edit local draft → save
  * bulk qua PATCH /api/admin/site-settings/. Sticky save bar hiện khi có thay đổi.
  *
  * Ảnh (logo/favicon/og_image) tạm thời chỉnh trong Django admin tới khi build
- * upload UI — page hiển thị note rõ ràng.
+ * upload UI: page hiển thị note rõ ràng.
  */
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { toast } from 'vue-sonner'
 import {
@@ -61,7 +61,7 @@ interface SectionMeta {
 }
 
 const SECTIONS: SectionMeta[] = [
-  // Nhóm Trung tâm — chỉnh SiteSettings (PATCH /api/admin/site-settings/).
+  // Nhóm Trung tâm: chỉnh SiteSettings (PATCH /api/admin/site-settings/).
   {
     key: 'bank',
     label: 'Ngân hàng',
@@ -98,7 +98,7 @@ const SECTIONS: SectionMeta[] = [
     icon: ChartBar,
     description: 'Số liệu trust strip hiển thị trên trang chủ. Cập nhật định kỳ thủ công.',
   },
-  // Nhóm Tích hợp ngoài — chỉnh IntegrationCredential (PUT /api/admin/integrations/{provider}/).
+  // Nhóm Tích hợp ngoài: chỉnh IntegrationCredential (PUT /api/admin/integrations/{provider}/).
   {
     key: 'casso',
     label: 'Casso',
@@ -141,6 +141,18 @@ const BANK_OPTIONS = [
 
 const queryClient = useQueryClient()
 const activeSection = ref<SectionKey>('bank')
+// focusedSection tách khỏi activeSection để hỗ trợ manual activation cho tab
+// integration (Casso/FB). Khi user lướt Arrow qua tab integration, chỉ focus
+// chứ KHÔNG render panel: tránh fire fetchIntegrations cho tới khi user thực
+// sự muốn vào tab đó (Enter/Space hoặc click).
+const focusedSection = ref<SectionKey>('bank')
+// Invariant: focusedSection follow activeSection khi activeSection đổi từ
+// nguồn programmatic (click "Quay lại để lưu", deep-link, mutation reset...).
+// Khi user Arrow trên integration tab thì focusedSection lệch activeSection
+// có chủ đích: watch không fire vì activeSection KHÔNG đổi.
+watch(activeSection, (value) => {
+  focusedSection.value = value
+})
 const draft = ref<SiteSettingsAdminPatch>({})
 
 const settingsQuery = useQuery({
@@ -208,7 +220,7 @@ function onDiscard() {
 }
 
 // Field nào trong draft thuộc section hiện tại?
-// Nhóm Integration (casso/fb) KHÔNG có entry — save bar riêng nằm trong panel.
+// Nhóm Integration (casso/fb) KHÔNG có entry: save bar riêng nằm trong panel.
 const SECTION_FIELDS: Partial<
   Record<SectionKey, (keyof SiteSettingsAdminPatch)[]>
 > = {
@@ -280,10 +292,28 @@ function isSectionDirty(key: SectionKey): boolean {
   return fields.some((f) => draft.value[f] !== undefined)
 }
 
-// Keyboard nav giữa các tab theo WAI-ARIA APG Tabs pattern: ← → di chuyển +
-// activate tab kế tiếp; Home / End nhảy về đầu / cuối; focus theo activeSection
-// để screen reader đọc đúng label tab mới.
+function onTabClick(key: SectionKey) {
+  focusedSection.value = key
+  activeSection.value = key
+}
+
+// Keyboard nav theo WAI-ARIA APG Tabs pattern, hybrid automatic/manual:
+// - Left Right Home End di chuyển focus.
+// - Tab SiteSettings (render rẻ, no network): auto-activate khi focus.
+// - Tab integration Casso/FB (mount IntegrationProviderPanel + fetch API): chỉ
+//   focus, KHÔNG activate. User phải Enter / Space để activate.
+// - Hành vi tránh: fire 1 request fetchIntegrations mỗi lần Arrow Right qua tab
+//   integration (lãng phí + nháy UI loading).
 function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    // Luôn preventDefault để Space không scroll page khi tab đang focus, dù
+    // focused === active (no-op activation). Khớp pattern button native.
+    event.preventDefault()
+    if (focusedSection.value !== activeSection.value) {
+      activeSection.value = focusedSection.value
+    }
+    return
+  }
   const total = SECTIONS.length
   let nextIndex = -1
   if (event.key === 'ArrowRight') {
@@ -299,7 +329,10 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
   }
   event.preventDefault()
   const nextKey = SECTIONS[nextIndex].key
-  activeSection.value = nextKey
+  focusedSection.value = nextKey
+  if (!INTEGRATION_SECTIONS.has(nextKey)) {
+    activeSection.value = nextKey
+  }
   nextTick(() => {
     const el = document.getElementById(`tab-${nextKey}`)
     el?.focus()
@@ -362,9 +395,11 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
     </Card>
 
     <!-- TAB SWITCHER (WAI-ARIA APG Tabs pattern) -->
+    <!-- Hint ẩn cho screen reader: tab integration cần Enter/Space để activate. -->
+    <span id="manual-tab-hint" class="sr-only">Nhấn Enter hoặc phím cách để tải khóa tích hợp</span>
     <div role="tablist" aria-label="Chọn nhóm cấu hình" class="-mb-px flex flex-wrap items-center gap-1 border-b border-line-soft">
       <template v-for="(sec, index) in SECTIONS" :key="sec.key">
-        <!-- Divider phân nhóm Cấu hình ↔ Tích hợp (trước tab integration đầu tiên). -->
+        <!-- Divider phân nhóm Cấu hình và Tích hợp (trước tab integration đầu tiên). -->
         <span
           v-if="index > 0 && INTEGRATION_SECTIONS.has(sec.key) && !INTEGRATION_SECTIONS.has(SECTIONS[index - 1].key)"
           class="mx-2 h-6 w-px self-center bg-line-base"
@@ -376,14 +411,17 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
           :id="`tab-${sec.key}`"
           :aria-selected="activeSection === sec.key"
           :aria-controls="`panel-${sec.key}`"
-          :tabindex="activeSection === sec.key ? 0 : -1"
+          :aria-describedby="INTEGRATION_SECTIONS.has(sec.key) ? 'manual-tab-hint' : undefined"
+          :tabindex="focusedSection === sec.key ? 0 : -1"
           :class="[
             'inline-flex items-center gap-2 px-4 py-3 text-body font-medium transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 focus-visible:rounded-sm',
             activeSection === sec.key
               ? 'text-brand-800 border-b-2 border-brand-700'
-              : 'text-ink-60 hover:text-ink border-b-2 border-transparent',
+              : focusedSection === sec.key && INTEGRATION_SECTIONS.has(sec.key)
+                ? 'text-brand-700 border-b-2 border-dashed border-brand-400'
+                : 'text-ink-60 hover:text-ink border-b-2 border-transparent',
           ]"
-          @click="activeSection = sec.key"
+          @click="onTabClick(sec.key)"
           @keydown="onTabKeydown($event, index)"
         >
           <component :is="sec.icon" :size="18" :weight="activeSection === sec.key ? 'duotone' : 'regular'" />
@@ -413,7 +451,7 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
 
     <section v-else-if="current" class="flex flex-col gap-6 animate-fade-in motion-reduce:animate-none">
       <!-- TABPANEL: nội dung 1 tab. KHÔNG tabindex=0 vì panel chứa focusable
-           children (Input/Select/Textarea) — WAI-ARIA APG khuyến cáo bỏ tab
+           children (Input/Select/Textarea): WAI-ARIA APG khuyến cáo bỏ tab
            stop thừa khi panel đã có focusable content. -->
       <div
         :id="`panel-${activeSection}`"
@@ -677,12 +715,15 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
         </p>
       </Card>
 
-      <!-- SECTION: CASSO / FACEBOOK LEAD ADS — panel tự quản state + save bar riêng.
+      <!-- SECTION: CASSO / FACEBOOK LEAD ADS: panel tự quản state + save bar riêng.
            Khi user còn draft SiteSettings chưa lưu ở các tab khác → hiện cảnh báo
            + nút quay lại để tránh mất data khi click discard hoặc rời trang. -->
       <template v-else-if="isIntegrationTab">
         <div
           v-if="hasUnsaved"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           class="flex flex-col gap-1 rounded-md border border-warning/30 bg-warning-soft px-4 py-3 text-caption text-warning sm:flex-row sm:items-center sm:justify-between"
         >
           <span class="flex items-center gap-2">
@@ -705,13 +746,18 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
       </div>
       <!-- /TABPANEL -->
 
-      <!-- SAVE BAR (chỉ cho SiteSettings tabs — integration panel có save bar nội bộ) -->
+      <!-- SAVE BAR (chỉ cho SiteSettings tabs: integration panel có save bar nội bộ) -->
       <div
         v-if="!isIntegrationTab && (hasUnsaved || saveMutation.isError.value)"
         class="sticky bottom-0 flex flex-col gap-3 rounded-xl border border-brand-200 bg-paper px-5 py-4 shadow-[0_4px_24px_-12px_rgba(20,83,45,0.15)] sm:flex-row sm:items-center sm:justify-between animate-slide-up motion-reduce:animate-none"
       >
         <div class="flex flex-col gap-0.5">
-          <p class="text-body font-medium text-ink">
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            class="text-body font-medium text-ink"
+          >
             <span class="text-brand-800">{{ changedCount }}</span>
             mục chưa lưu
             <span v-if="sectionChangedCount > 0" class="text-ink-60">

@@ -240,7 +240,12 @@ function onDiscard() {
         class="sticky bottom-0 flex flex-col gap-3 rounded-xl border border-brand-200 bg-paper px-5 py-4 shadow-[0_4px_24px_-12px_rgba(20,83,45,0.15)] sm:flex-row sm:items-center sm:justify-between animate-slide-up motion-reduce:animate-none"
       >
         <div class="flex flex-col gap-0.5">
-          <p class="text-body font-medium text-ink">
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            class="text-body font-medium text-ink"
+          >
             <span class="text-brand-800">{{ changedCount }}</span>
             khóa chưa lưu
           </p>
