@@ -268,23 +268,38 @@ jobs:
           path: /tmp/frontend-public-output/
 
       - name: SSH deploy backend (git pull + docker compose build/up + migrate)
+        timeout-minutes: 20
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
+          # Refactor 2026-06-12 (nhanh AD1): tach lam 8 step rieng + ::group::
+          # fold tren GitHub Actions UI + dump backend log khi health fail. Loai
+          # bo lenh `up -d` ALL services (cu) vi neu service nao trong stack fail
+          # (port conflict, env missing) thi `set -e` exit som -> step
+          # force-recreate khong fire silent (root cause memory sprint3-tuan7-z-status).
           ssh "${VPS_USER}@${VPS_HOST}" bash -se <<'EOF'
           set -euo pipefail
           cd /var/www/thanhdat
 
-          # Pull code qua deploy key alias github-thanhdat (config trong /root/.ssh/config).
+          # Note: ::group:: workflow command KHONG parse qua SSH wrap (chi runner-side
+          # stdout duoc parse). Dung "=== Step N ===" separator de log van dai
+          # nhung trace duoc step nao fail. Trade-off: log khong fold UI; ban hu
+          # quan tam fold thi tach step ssh rieng (dat hon 7 handshake).
+          echo "=== Step 0: Env check ==="
+          bash --version | head -1
+          docker compose version || docker-compose --version
+
+          echo "=== Step 1: Pull code tu origin/main ==="
           if [ ! -d .git ]; then
             git clone --depth 1 git@github-thanhdat:Duongduongtn/CRMTuyenSinh.git .
           else
             git fetch origin main
             git reset --hard origin/main
           fi
+          echo "HEAD: $(git log -1 --oneline)"
 
-          # Tao thu muc bind mount neu chua co.
+          echo "=== Step 2: Tao bind mount dirs (idempotent) ==="
           mkdir -p /var/www/thanhdat/backend-media /var/www/thanhdat/backend-static
           mkdir -p /var/www/thanhdat/frontend-crm/dist
           # PWA hoc vien: nginx tro root vao .output/public (xem hocvien.*.conf:43).
@@ -292,32 +307,59 @@ jobs:
           # FE public: docker service mount .output (server + public).
           mkdir -p /var/www/thanhdat/frontend-public/.output
 
-          # Build backend image (cache layer requirements.txt -> rebuild nhanh khi chi doi code).
-          # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
           cd infra
+
+          # ----- Step 3: Ensure base services (db, redis) up truoc khi rebuild
+          # backend. Idempotent: neu da chay -> no-op. Lan dau hoac sau reboot VPS
+          # -> spin up. nginx chay host-level (systemd service), KHONG trong compose.
+          echo "=== Step 3: Ensure base services (db + redis) ==="
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --no-deps db redis
+
+          echo "=== Step 4: Build backend image (tag latest, cache layer) ==="
+          # --env-file .env.prod can thiet de substitution ${POSTGRES_DB} hoat dong trong compose file.
           docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
 
-          # Migrate truoc khi swap container (giam downtime).
+          echo "=== Step 5: Migrate DB (run --rm backend container tam) ==="
           docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm backend python manage.py migrate --noinput
 
-          # Up tat ca service. Force-recreate 3 service share image `thanhdat-backend:latest`
-          # (backend + celery-worker + celery-beat) vi compose `up -d` khong tu detect image hash
-          # khi rebuild cung tag -> container cu giu code cu. Cac service khac (db/redis/nginx)
-          # giu nguyen (restart neu config thay doi).
-          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
-          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate --no-deps backend celery-worker celery-beat
+          # ----- Step 6: FORCE-RECREATE 3 service share image thanhdat-backend:latest.
+          # `up -d` mac dinh KHONG detect image hash thay doi khi rebuild cung tag
+          # -> container giu code cu. `--force-recreate` lay image latest hash hien tai.
+          # `--no-deps` chi recreate 3 service ke ten, khong restart base.
+          # KHONG dung `--remove-orphans` o day (rui ro xoa nham container override
+          # file thu cong). Cleanup deprecated container la thao tac manual khi
+          # doi stack.
+          echo "=== Step 6: Force-recreate backend + celery-worker + celery-beat ==="
+          docker compose --env-file .env.prod -f docker-compose.prod.yml up -d \
+            --force-recreate --no-deps \
+            backend celery-worker celery-beat
+          echo "--- docker compose ps sau force-recreate:"
+          docker compose --env-file .env.prod -f docker-compose.prod.yml ps backend celery-worker celery-beat
 
-          # Health check backend trong 30s.
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS http://127.0.0.1:8003/admin/login/ > /dev/null 2>&1; then
-              echo "Backend up OK"
+          # ----- Step 7: Health check backend voi log per-attempt. Neu fail
+          # sau 30s -> dump backend log de debug, exit fail (KHONG silent skip).
+          # Dung endpoint /healthz/ (light, khong qua admin template render).
+          echo "=== Step 7: Health check backend (30s) ==="
+          BACKEND_UP=0
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://127.0.0.1:8003/healthz/ > /dev/null 2>&1; then
+              echo "Backend up OK sau ${i} lan thu (~$((i*3))s)"
+              BACKEND_UP=1
               break
             fi
-            echo "Cho backend... ($i/6)"
-            sleep 5
+            echo "Cho backend... ($i/10)"
+            sleep 3
           done
+          if [ "$BACKEND_UP" != "1" ]; then
+            echo "FAIL: backend khong up sau 30s. Dump log de debug:"
+            echo "--- docker compose logs backend (50 dong cuoi):"
+            docker compose --env-file .env.prod -f docker-compose.prod.yml logs --tail 50 backend || true
+            echo "--- docker compose ps:"
+            docker compose --env-file .env.prod -f docker-compose.prod.yml ps || true
+            exit 1
+          fi
 
-          # Dam bao collectstatic chay (output sang bind mount).
+          echo "=== Step 8: collectstatic (output sang bind mount) ==="
           docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T backend python manage.py collectstatic --noinput
           EOF
 
@@ -514,9 +556,17 @@ jobs:
 
       - name: Smoke test HTTPS
         run: |
-          # Check BE health (chap nhan 200/401/403 - tat ca deu chung to BE alive).
+          # Check BE health qua /healthz/ (light, khong qua /api/ middleware nang).
+          # 200 = backend container up + WSGI lo + middleware chain pass.
+          BE_HEALTH=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            https://sale.trungtamthanhdat.com/healthz/)
+          echo "BE /healthz/: $BE_HEALTH"
+          [ "$BE_HEALTH" = "200" ] || { echo "BE healthz FAIL: $BE_HEALTH"; exit 1; }
+
+          # Check BE site-settings route (verify /api/ routing + DB query ok).
           # URL pattern apps/core/urls.py la "site-settings" KHONG trailing slash.
           # Django KHONG auto-strip slash (APPEND_SLASH chi append, khong strip).
+          # 200 = public endpoint serve OK.
           BE_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
             https://sale.trungtamthanhdat.com/api/site-settings)
           echo "BE site-settings: $BE_CODE"

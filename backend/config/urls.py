@@ -4,12 +4,15 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.core.views import HealthzView
 from apps.marketing.urls import webhook_urlpatterns as marketing_webhooks
 from apps.payments.urls import webhook_urlpatterns as payments_webhooks
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Health check root-level cho CI + monitoring (KHONG nam trong /api/).
+    path("healthz/", HealthzView.as_view(), name="healthz"),
     path("api/", include("apps.core.urls")),
     path("api/", include("apps.users.urls")),
     path("api/", include("apps.courses.urls")),

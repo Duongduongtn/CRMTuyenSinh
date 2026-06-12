@@ -37,6 +37,24 @@ class IsSuperUser(IsAuthenticated):
         )
 
 
+class HealthzView(APIView):
+    """GET /healthz/ — health check nhẹ cho CI deploy + monitoring sau này.
+
+    KHÔNG query DB, KHÔNG render template — chỉ confirm Django WSGI/ASGI lên,
+    middleware chain pass. Verify pre-condition cho mọi endpoint khác sẵn sàng
+    nhận traffic. Dùng cho `docker compose healthcheck` + workflow deploy.yml
+    `curl http://127.0.0.1:8003/healthz/`.
+
+    Public (AllowAny), không auth. Trả 200 + JSON ``{"ok": true}``.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, _request):
+        return Response({"ok": True})
+
+
 class SiteSettingsPublicView(APIView):
     """GET /api/site-settings — brand, contact, SEO mặc định cho FE Nuxt.
 
