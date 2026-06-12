@@ -341,6 +341,204 @@ class SiteSettingsAdminAPITests(TestCase):
         self.assertIsNone(log.changes["old"]["map_lat"])
         self.assertEqual(log.changes["new"]["map_lat"], "10.7626001")
 
+    # ----- Forensic audit: SUSPICIOUS_FIELD khi attacker PATCH key cấm -----
+
+    def test_patch_with_only_rejected_fields_logs_suspicious_and_returns_400(self):
+        """Payload toàn key cấm (is_superuser, created_at) → 400 + 1 AuditLog
+        SUSPICIOUS_FIELD ghi tên key (KHÔNG ghi value để tránh leak attack vector)."""
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={"is_superuser": True, "created_at": "2030-01-01T00:00:00Z"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+        log = AuditLog.objects.filter(
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(
+            log, "Phải có 1 AuditLog SUSPICIOUS_FIELD khi attacker PATCH key cấm."
+        )
+        self.assertEqual(log.user, self.superuser)
+        self.assertEqual(
+            sorted(log.changes["rejected_fields"]),
+            ["created_at", "is_superuser"],
+        )
+        self.assertEqual(log.changes["rejected_count"], 2)
+        # target_id rỗng: SUSPICIOUS không gắn instance vì attacker chưa chạm row.
+        self.assertEqual(log.target_id, "")
+        # KHÔNG có giá trị raw trong log (tránh leak attack vector).
+        self.assertNotIn("True", str(log.changes))
+        self.assertNotIn("2030", str(log.changes))
+
+        # KHÔNG có AuditLog UPDATE vì payload sau filter rỗng.
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.UPDATE, target_model="SiteSettings"
+            ).count(),
+            0,
+        )
+
+    def test_patch_with_mixed_valid_and_rejected_logs_suspicious_and_updates(self):
+        """Payload mix valid (brand_name) + rejected (is_superuser) → 200 +
+        brand_name update + 2 AuditLog (SUSPICIOUS_FIELD + UPDATE)."""
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={
+                "brand_name": "Trung tâm hợp lệ",
+                "is_superuser": True,
+                "id": 999,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+
+        # brand_name update.
+        site = SiteSettings.get_solo()
+        self.assertEqual(site.brand_name, "Trung tâm hợp lệ")
+        # Superuser flag KHÔNG bị đụng (whitelist defense).
+        self.assertTrue(self.superuser.is_superuser)
+
+        # AuditLog SUSPICIOUS_FIELD: 1 entry với rejected_fields = sorted.
+        susp_log = AuditLog.objects.filter(
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(susp_log)
+        self.assertEqual(
+            susp_log.changes["rejected_fields"], ["id", "is_superuser"]
+        )
+
+        # AuditLog UPDATE: 1 entry với brand_name.
+        upd_log = AuditLog.objects.filter(
+            action=AuditLog.Action.UPDATE,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(upd_log)
+        self.assertEqual(upd_log.changes["fields_changed"], ["brand_name"])
+
+    def test_patch_with_only_editable_fields_no_suspicious_log(self):
+        """Payload sạch (chỉ key trong whitelist) → KHÔNG có SUSPICIOUS_FIELD log,
+        chỉ có UPDATE log thường."""
+        self.client.force_authenticate(self.superuser)
+        self.client.patch(
+            reverse("admin-site-settings"),
+            data={"brand_name": "Tên mới"},
+            format="json",
+        )
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.SUSPICIOUS_FIELD,
+                target_model="SiteSettings",
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.UPDATE,
+                target_model="SiteSettings",
+            ).count(),
+            1,
+        )
+
+    def test_patch_with_list_payload_returns_400_without_suspicious_log(self):
+        """request.data là list (vd `[{"is_superuser": true}]`) → guard isinstance
+        đẩy về dict rỗng → KHÔNG có SUSPICIOUS log + 400 + không crash 500."""
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data=[{"is_superuser": True}],
+            format="json",
+        )
+        # Bị filter ra dict rỗng → raise ValueError → 400, KHÔNG 500.
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action=AuditLog.Action.SUSPICIOUS_FIELD,
+                target_model="SiteSettings",
+            ).count(),
+            0,
+            "List payload → guard fall-back dict rỗng → rejected_fields rỗng.",
+        )
+
+    def test_patch_rejected_fields_capped_at_max_logged(self):
+        """Payload chứa > MAX_REJECTED_FIELDS_LOGGED (20) key cấm → log chứa
+        tối đa 20 key + marker __truncated__ + rejected_count thật (forensic).
+        Chống DoS bloat AuditLog JSONB."""
+        self.client.force_authenticate(self.superuser)
+        # Gửi 100 key lạ (kxx_001 → kxx_100) → 100 rejected.
+        bad_keys = {f"kxx_{i:03d}": i for i in range(100)}
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data=bad_keys,
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+        log = AuditLog.objects.filter(
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.changes["rejected_count"], 100)
+        # 20 key + 1 marker = 21 phần tử.
+        self.assertEqual(len(log.changes["rejected_fields"]), 21)
+        self.assertEqual(log.changes["rejected_fields"][-1], "__truncated__")
+        # 20 key đầu (sorted) phải bắt đầu từ kxx_000.
+        self.assertEqual(log.changes["rejected_fields"][0], "kxx_000")
+        self.assertEqual(log.changes["rejected_fields"][19], "kxx_019")
+
+    def test_patch_rejected_key_length_truncated(self):
+        """Key dài > MAX_REJECTED_KEY_LENGTH (64) chars → log chỉ giữ 64 ký tự
+        đầu. Chống PG TOAST bloat khi attacker gửi key 50k chars."""
+        self.client.force_authenticate(self.superuser)
+        long_key = "X" * 1000
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={long_key: 1},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+        log = AuditLog.objects.filter(
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.changes["rejected_count"], 1)
+        self.assertEqual(len(log.changes["rejected_fields"]), 1)
+        # Key truncate đúng 64 chars.
+        self.assertEqual(log.changes["rejected_fields"][0], "X" * 64)
+        # Original 1000-char key không lưu raw.
+        self.assertNotIn("X" * 100, str(log.changes))
+
+    def test_suspicious_field_log_persists_when_validation_fails_after(self):
+        """SUSPICIOUS_FIELD emit NGOÀI transaction.atomic → kể cả khi validation
+        sau đó fail (vd email sai), suspicious log vẫn lưu để forensic."""
+        self.client.force_authenticate(self.superuser)
+        resp = self.client.patch(
+            reverse("admin-site-settings"),
+            data={
+                "email": "không-phải-email",
+                "is_superuser": True,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+        susp_log = AuditLog.objects.filter(
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model="SiteSettings",
+        ).first()
+        self.assertIsNotNone(
+            susp_log,
+            "SUSPICIOUS log phải persist kể cả khi validation field hợp lệ fail.",
+        )
+        self.assertEqual(susp_log.changes["rejected_fields"], ["is_superuser"])
+
     def test_patch_uses_select_for_update_inside_atomic(self):
         """select_for_update phải được gọi để lock row → chống last-write-wins.
 

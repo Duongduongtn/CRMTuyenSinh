@@ -35,6 +35,16 @@ from .models import AuditLog
 # Mask callable: nhận giá trị raw (str/None/int) → trả str an toàn hiển thị log.
 SensitiveMaskMap = dict[str, Callable[[Any], str]]
 
+# Bound forensic SUSPICIOUS_FIELD log để chống DoS bloat AuditLog table:
+# - Attacker (compromised superuser) gửi 10k key lạ → 1 row JSONB phình → PG
+#   TOAST page cost + query forensic chậm. Giữ tối đa 20 key đầu (sorted) +
+#   marker __truncated__ + count thật. Volume admin endpoint cực thấp nên 20
+#   key đủ truy vết pattern attack.
+# - Single key tên 50k char → JSONB > 2KB → đẩy ra TOAST. Truncate 64 đủ phân
+#   biệt field name hợp lệ (max field name VN hiện ~ 30 char `working_hours_text`).
+MAX_REJECTED_FIELDS_LOGGED = 20
+MAX_REJECTED_KEY_LENGTH = 64
+
 
 def apply_audited_patch_singleton(
     *,
@@ -82,8 +92,14 @@ def apply_audited_patch_singleton(
           serialize (PostgreSQL row-level lock).
         - Filter raw body theo whitelist TRƯỚC khi truyền serializer (nếu sau này
           thêm field nhạy cảm ``is_superuser`` vào model, mass assignment vẫn an toàn).
-        - Audit chỉ ghi khi có field thực sự đổi (so sánh old != new bằng ``!=``
-          để bắt cả case serializer normalize giá trị ``"  x  "`` → ``"x"``).
+        - Key client gửi NHƯNG nằm ngoài whitelist (vd ``is_superuser``,
+          ``created_at``) sẽ emit AuditLog ``SUSPICIOUS_FIELD`` riêng (NGOÀI
+          atomic block) — luôn ghi kể cả khi payload sau filter rỗng → raise
+          ValueError. Forensic: chỉ log tên key, KHÔNG log value tránh leak
+          attack vector.
+        - Audit UPDATE chỉ ghi khi có field thực sự đổi (so sánh old != new
+          bằng ``!=`` để bắt cả case serializer normalize giá trị
+          ``"  x  "`` → ``"x"``).
         - Sensitive field: cả old + new đều mask trước khi đưa vào ``changes``.
     """
     sensitive_masks = sensitive_masks or {}
@@ -91,6 +107,48 @@ def apply_audited_patch_singleton(
 
     raw = request.data if isinstance(request.data, dict) else {}
     payload = {k: v for k, v in raw.items() if k in editable_set}
+    # Forensic: capture key client gửi nhưng KHÔNG nằm trong whitelist (vd
+    # is_superuser, id, created_at). Chỉ log tên key, KHÔNG log value — tránh
+    # leak attack vector ngược lại vào DB. AuditLog này LUÔN ghi kể cả khi
+    # payload còn lại empty + raise ValueError sau đó, để forensic value cao
+    # nhất (attacker thử endpoint).
+    rejected_set = set(raw.keys()) - editable_set
+    rejected_count = len(rejected_set)
+
+    actor = request.user if request.user.is_authenticated else None
+    client_ip = _resolve_ip(request, ip_resolver)
+    ua_max_length = AuditLog._meta.get_field("user_agent").max_length
+    user_agent = request.META.get("HTTP_USER_AGENT", "")[:ua_max_length]
+
+    if rejected_count > 0:
+        # Truncate key dài (chống TOAST bloat) + cap số key log (chống DoS storm).
+        # Dedup sau truncate (set comprehension) tránh redundancy khi 2 key khác
+        # nhau collapse cùng prefix 64 char. Sort để output deterministic, tránh
+        # test flaky theo set iteration order. rejected_count vẫn đếm SET GỐC
+        # trước truncate → forensic source-of-truth không bị lệch.
+        truncated_keys = sorted({k[:MAX_REJECTED_KEY_LENGTH] for k in rejected_set})
+        if len(truncated_keys) > MAX_REJECTED_FIELDS_LOGGED:
+            logged_keys = (
+                truncated_keys[:MAX_REJECTED_FIELDS_LOGGED] + ["__truncated__"]
+            )
+        else:
+            logged_keys = truncated_keys
+        AuditLog.objects.create(
+            user=actor,
+            action=AuditLog.Action.SUSPICIOUS_FIELD,
+            target_model=audit_target_model,
+            # target_id rỗng: SUSPICIOUS log forensic event của attempt, KHÔNG
+            # gắn instance cụ thể vì attacker chưa chạm row. Tránh mismatch với
+            # UPDATE log target_id=instance.pk thật (django-solo custom pk).
+            target_id="",
+            changes={
+                "rejected_fields": logged_keys,
+                "rejected_count": rejected_count,
+            },
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+
     if not payload:
         raise ValueError("payload_empty")
 
@@ -136,13 +194,13 @@ def apply_audited_patch_singleton(
                 sensitive_masks=sensitive_masks,
             )
             AuditLog.objects.create(
-                user=request.user if request.user.is_authenticated else None,
+                user=actor,
                 action=audit_action,
                 target_model=audit_target_model,
                 target_id=str(instance.pk),
                 changes=changes,
-                ip_address=_resolve_ip(request, ip_resolver),
-                user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],
+                ip_address=client_ip,
+                user_agent=user_agent,
             )
 
     return instance, fields_changed

@@ -306,6 +306,7 @@ class AuditLog(models.Model):
         LOGIN_FAILED = "login_failed", _("Đăng nhập thất bại")
         LOGOUT = "logout", _("Đăng xuất")
         PERMISSION_CHANGE = "permission_change", _("Đổi quyền")
+        SUSPICIOUS_FIELD = "suspicious_field", _("Trường khả nghi bị từ chối")
 
     user = models.ForeignKey(
         "users.User",
