@@ -55,4 +55,8 @@ export {
   PhLink as Link,
   PhCopy as Copy,
   PhClockCountdown as ClockCountdown,
+  PhStorefront as Storefront,
+  PhShareNetwork as ShareNetwork,
+  PhGear as Gear,
+  PhFileText as FileText,
 } from '@phosphor-icons/vue'

@@ -67,6 +67,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Học viên' },
       },
       {
+        path: 'admin/settings',
+        name: 'admin-settings',
+        component: () => import('@/pages/admin/Settings.vue'),
+        meta: { title: 'Cài đặt trung tâm', superuserOnly: true },
+      },
+      {
         path: 'admin/integrations',
         name: 'admin-integrations',
         component: () => import('@/pages/admin/Integrations.vue'),

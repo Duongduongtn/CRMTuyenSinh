@@ -10,6 +10,7 @@ import {
   GraduationCap,
   ChartBar,
   PlugsConnected,
+  Gear,
   X,
 } from '@/lib/icons'
 import { useAuthStore } from '@/stores/auth'
@@ -47,6 +48,7 @@ const items = computed<NavItem[]>(() => [
   { to: '/reports', label: 'Báo cáo', icon: ChartBar, groups: [ROLES.ADMIN, ROLES.ACCOUNTANT] },
   { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: [ROLES.ADMIN, ROLES.CLERK] },
   { to: '/students', label: 'Học viên', icon: GraduationCap, groups: [ROLES.ADMIN, ROLES.CLERK, ROLES.SALE] },
+  { to: '/admin/settings', label: 'Cài đặt', icon: Gear, superuserOnly: true },
   { to: '/admin/integrations', label: 'Khóa tích hợp', icon: PlugsConnected, superuserOnly: true },
 ])
 
