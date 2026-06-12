@@ -539,6 +539,67 @@ class SiteSettingsAdminAPITests(TestCase):
         )
         self.assertEqual(susp_log.changes["rejected_fields"], ["is_superuser"])
 
+    # ----- AE5: mask bank_account_name (vishing defense SEC P2) -----
+
+    def test_patch_audit_bank_account_name_only_masked(self):
+        """AE5 SEC P2: tên chủ TK mask first+last letter mỗi từ, plaintext
+        KHÔNG xuất hiện trong AuditLog (chống vishing giả mạo giám đốc)."""
+        self.client.force_authenticate(self.superuser)
+        self.client.patch(
+            reverse("admin-site-settings"),
+            data={"bank_account_name": "NGUYEN VAN ANH"},
+            format="json",
+        )
+
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertIsNotNone(log)
+        # Mask: N****N V*N A*H (first+last letter, * giữa, "ANH" 3 chars → 1 *).
+        self.assertEqual(
+            log.changes["new"]["bank_account_name"], "N****N V*N A*H"
+        )
+        self.assertNotIn("NGUYEN VAN ANH", str(log.changes))
+
+    def test_patch_audit_bank_account_name_short_word_passthrough(self):
+        """Từ <= 2 ký tự không mask (vd "TM" giữ nguyên) — không có gì để mask."""
+        self.client.force_authenticate(self.superuser)
+        self.client.patch(
+            reverse("admin-site-settings"),
+            data={"bank_account_name": "TM XYZ"},
+            format="json",
+        )
+        log = AuditLog.objects.filter(target_model="SiteSettings").first()
+        self.assertEqual(log.changes["new"]["bank_account_name"], "TM X*Z")
+
+    # ----- AE5: CaptureQueriesContext PG-only verify SQL FOR UPDATE -----
+
+    def test_patch_emits_select_for_update_sql_on_postgres(self):
+        """AE5 BE MINOR-2: thay test mock Manager.select_for_update bằng
+        CaptureQueriesContext robust hơn (không phụ thuộc Django internals).
+        Chỉ chạy trên PG vì SQLite KHÔNG render FOR UPDATE."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        if connection.vendor != "postgresql":
+            self.skipTest("select_for_update SQL chỉ render trên PostgreSQL")
+
+        self.client.force_authenticate(self.superuser)
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client.patch(
+                reverse("admin-site-settings"),
+                data={"brand_name": "Y"},
+                format="json",
+            )
+        self.assertEqual(resp.status_code, 200)
+        sfu_queries = [
+            q for q in ctx.captured_queries
+            if "FOR UPDATE" in q["sql"].upper()
+        ]
+        self.assertGreater(
+            len(sfu_queries),
+            0,
+            "PATCH phải render ít nhất 1 SELECT ... FOR UPDATE để lock row.",
+        )
+
     def test_patch_uses_select_for_update_inside_atomic(self):
         """select_for_update phải được gọi để lock row → chống last-write-wins.
 

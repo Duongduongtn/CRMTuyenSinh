@@ -25,7 +25,7 @@ from .image_uploads import (
     validate_uploaded_image,
 )
 from .integrations import INTEGRATION_SCHEMA, invalidate
-from .mixins import apply_audited_patch_singleton
+from .mixins import EmptyPayloadError, apply_audited_patch_singleton
 from .models import AuditLog, IntegrationCredential, SiteSettings
 from .serializers import (
     SITE_SETTINGS_ADMIN_EDITABLE_FIELDS,
@@ -113,10 +113,15 @@ class SiteSettingsAdminView(APIView):
                     # NĐ 13/2023: MST DN/CN là dữ liệu định danh gián tiếp (kết
                     # hợp với STK có thể cross-reference GDT) — chỉ mask 4 cuối.
                     "tax_code": _mask_bank_account,
+                    # AE5 SEC P2: tên chủ TK + STK + brand info đủ cho attacker
+                    # vishing (giả mạo giám đốc gọi điện học viên). Mask giữ
+                    # ký tự đầu + cuối mỗi từ để ops vẫn nhận diện được khi
+                    # debug, plaintext không leak ra log.
+                    "bank_account_name": _mask_bank_account_name,
                 },
                 ip_resolver=_get_client_ip,
             )
-        except ValueError:
+        except EmptyPayloadError:
             return Response(
                 {"detail": "Không có field nào hợp lệ để cập nhật."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -286,6 +291,27 @@ def _mask_bank_account(number: str) -> str:
     if len(number) <= 4:
         return "****"
     return "*" * (len(number) - 4) + number[-4:]
+
+
+def _mask_bank_account_name(value: str) -> str:
+    """Mask tên chủ TK: giữ ký tự đầu + cuối mỗi từ, mask giữa bằng `*`.
+
+    Ví dụ: ``"NGUYEN VAN ANH"`` → ``"N****N V*N A*H"`` (word "ANH" 3 chars → 1 *).
+
+    Lý do: nếu attacker biết tên chủ TK (đặc biệt khi TK đứng tên cá nhân
+    giám đốc) + số TK + brand info, đủ giả mạo gọi điện vishing cho học viên
+    "tôi là giám đốc X, chuyển tiền vào TK...". Mask giữ ký tự đầu/cuối để
+    ops debug khi cần (vẫn nhận diện được), KHÔNG leak full plaintext ra log.
+    """
+    if not value:
+        return ""
+
+    def _mask_word(word: str) -> str:
+        if len(word) <= 2:
+            return word
+        return word[0] + "*" * (len(word) - 2) + word[-1]
+
+    return " ".join(_mask_word(w) for w in value.split())
 
 
 def _build_items_for_provider(provider: str) -> list[dict]:

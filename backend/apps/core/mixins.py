@@ -32,6 +32,15 @@ from rest_framework.request import Request
 from .models import AuditLog
 
 
+class EmptyPayloadError(Exception):
+    """Raise khi payload sau filter whitelist rỗng (caller nên return 400).
+
+    Clean exception class hơn raw ``ValueError("payload_empty")``: consumer
+    Sprint 4+ có thể phân biệt với ValueError business logic khác (vd
+    validation), và có thể catch riêng để log/handle khác nhau.
+    """
+
+
 # Mask callable: nhận giá trị raw (str/None/int) → trả str an toàn hiển thị log.
 SensitiveMaskMap = dict[str, Callable[[Any], str]]
 
@@ -84,7 +93,7 @@ def apply_audited_patch_singleton(
 
     Raises:
         rest_framework.exceptions.ValidationError: Serializer invalid.
-        ValueError: Payload sau khi filter rỗng (caller nên return 400).
+        EmptyPayloadError: Payload sau khi filter rỗng (caller nên return 400).
 
     Behavior:
         - Mở 1 ``transaction.atomic`` block bao trọn fetch → validate → save → audit.
@@ -150,7 +159,7 @@ def apply_audited_patch_singleton(
         )
 
     if not payload:
-        raise ValueError("payload_empty")
+        raise EmptyPayloadError("payload_empty")
 
     context = {"request": request}
     if extra_serializer_context:
