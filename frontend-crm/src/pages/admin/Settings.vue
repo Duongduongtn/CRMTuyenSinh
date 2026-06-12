@@ -24,6 +24,9 @@ import {
   Info,
   ArrowsClockwise,
   Check,
+  Warning,
+  FacebookLogo,
+  PlugsConnected,
 } from '@/lib/icons'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -32,6 +35,7 @@ import Textarea from '@/components/ui/Textarea.vue'
 import Select from '@/components/ui/Select.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
+import IntegrationProviderPanel from '@/components/admin/IntegrationProviderPanel.vue'
 import {
   fetchSiteSettingsAdmin,
   updateSiteSettingsAdmin,
@@ -39,7 +43,15 @@ import {
   type SiteSettingsAdminPatch,
 } from '@/api/siteSettings'
 
-type SectionKey = 'bank' | 'brand' | 'contact' | 'social' | 'seo' | 'stats'
+type SectionKey =
+  | 'bank'
+  | 'brand'
+  | 'contact'
+  | 'social'
+  | 'seo'
+  | 'stats'
+  | 'casso'
+  | 'fb'
 
 interface SectionMeta {
   key: SectionKey
@@ -49,6 +61,7 @@ interface SectionMeta {
 }
 
 const SECTIONS: SectionMeta[] = [
+  // Nhóm Trung tâm — chỉnh SiteSettings (PATCH /api/admin/site-settings/).
   {
     key: 'bank',
     label: 'Ngân hàng',
@@ -85,7 +98,27 @@ const SECTIONS: SectionMeta[] = [
     icon: ChartBar,
     description: 'Số liệu trust strip hiển thị trên trang chủ. Cập nhật định kỳ thủ công.',
   },
+  // Nhóm Tích hợp ngoài — chỉnh IntegrationCredential (PUT /api/admin/integrations/{provider}/).
+  {
+    key: 'casso',
+    label: 'Casso',
+    icon: PlugsConnected,
+    description:
+      'Đối soát QR đặt cọc tự động: verify HMAC webhook + gọi API Casso kiểm tra giao dịch.',
+  },
+  {
+    key: 'fb',
+    label: 'Facebook Lead Ads',
+    icon: FacebookLogo,
+    description:
+      'Pull lead tự động từ Meta Ads Manager. Defer tới khi chạy quảng cáo Facebook.',
+  },
 ]
+
+const INTEGRATION_SECTIONS: ReadonlySet<SectionKey> = new Set(['casso', 'fb'])
+const SITE_SETTINGS_SECTIONS_COUNT = SECTIONS.filter(
+  (s) => !INTEGRATION_SECTIONS.has(s.key),
+).length
 
 // Danh sách ngân hàng VietQR phổ biến VN (NAPAS code).
 const BANK_OPTIONS = [
@@ -175,7 +208,10 @@ function onDiscard() {
 }
 
 // Field nào trong draft thuộc section hiện tại?
-const SECTION_FIELDS: Record<SectionKey, (keyof SiteSettingsAdminPatch)[]> = {
+// Nhóm Integration (casso/fb) KHÔNG có entry — save bar riêng nằm trong panel.
+const SECTION_FIELDS: Partial<
+  Record<SectionKey, (keyof SiteSettingsAdminPatch)[]>
+> = {
   bank: ['bank_code', 'bank_account_number', 'bank_account_name'],
   brand: ['brand_name', 'brand_short_name', 'slogan', 'description'],
   contact: [
@@ -214,8 +250,25 @@ const SECTION_FIELDS: Record<SectionKey, (keyof SiteSettingsAdminPatch)[]> = {
 }
 
 const sectionChangedCount = computed(() => {
-  const fields = SECTION_FIELDS[activeSection.value]
+  const fields = SECTION_FIELDS[activeSection.value] ?? []
   return fields.filter((f) => draft.value[f] !== undefined).length
+})
+
+const isIntegrationTab = computed(() =>
+  INTEGRATION_SECTIONS.has(activeSection.value),
+)
+
+// Khi user nhảy sang tab integration với draft SiteSettings còn dirty, tìm tab
+// site-settings ĐẦU TIÊN có thay đổi để jump back qua nút "Quay lại để lưu".
+const firstDirtySiteSettingsSection = computed<SectionKey | null>(() => {
+  for (const sec of SECTIONS) {
+    if (INTEGRATION_SECTIONS.has(sec.key)) continue
+    const fields = SECTION_FIELDS[sec.key] ?? []
+    if (fields.some((f) => draft.value[f] !== undefined)) {
+      return sec.key
+    }
+  }
+  return null
 })
 
 const currentSection = computed(
@@ -236,15 +289,15 @@ const currentSection = computed(
           Cài đặt trung tâm
         </h1>
         <p class="max-w-2xl text-body text-ink-60">
-          Cập nhật thương hiệu, liên hệ, mạng xã hội, tài khoản ngân hàng nhận đặt cọc
-          và số liệu hiển thị. Thay đổi áp dụng tức thì cho website công khai và CRM
-          nội bộ, không cần khởi động lại dịch vụ.
+          Cập nhật thương hiệu, liên hệ, mạng xã hội, tài khoản ngân hàng nhận đặt cọc,
+          số liệu hiển thị và khóa tích hợp Casso/Facebook Lead Ads. Thay đổi áp dụng
+          tức thì cho website công khai và CRM nội bộ, không cần khởi động lại dịch vụ.
         </p>
       </div>
       <div class="flex flex-col items-start gap-2 sm:items-end">
         <span class="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-caption font-medium text-brand-800">
           <Gear :size="14" weight="duotone" />
-          {{ SECTIONS.length }} nhóm cấu hình
+          {{ SITE_SETTINGS_SECTIONS_COUNT }} cấu hình · {{ INTEGRATION_SECTIONS.size }} tích hợp
         </span>
         <button
           type="button"
@@ -257,8 +310,8 @@ const currentSection = computed(
       </div>
     </header>
 
-    <!-- NOTE: image upload tạm chỉnh Django admin -->
-    <Card class="border-info/30 bg-info-soft/40 px-5 py-4">
+    <!-- NOTE: image upload tạm chỉnh Django admin (chỉ hiện ở nhóm SiteSettings) -->
+    <Card v-if="!isIntegrationTab" class="border-info/30 bg-info-soft/40 px-5 py-4">
       <div class="flex items-start gap-3">
         <Info :size="20" weight="duotone" class="mt-0.5 shrink-0 text-info" />
         <div class="text-body leading-relaxed text-ink-60">
@@ -278,29 +331,35 @@ const currentSection = computed(
     </Card>
 
     <!-- TAB SWITCHER -->
-    <nav role="tablist" aria-label="Chọn nhóm cấu hình" class="-mb-px flex flex-wrap gap-1 border-b border-line-soft">
-      <button
-        v-for="sec in SECTIONS"
-        :key="sec.key"
-        type="button"
-        :role="'tab'"
-        :aria-selected="activeSection === sec.key"
-        :class="[
-          'inline-flex items-center gap-2 px-4 py-3 text-body font-medium transition-colors duration-200',
-          activeSection === sec.key
-            ? 'text-brand-800 border-b-2 border-brand-700'
-            : 'text-ink-60 hover:text-ink border-b-2 border-transparent',
-        ]"
-        @click="activeSection = sec.key"
-      >
-        <component :is="sec.icon" :size="18" :weight="activeSection === sec.key ? 'duotone' : 'regular'" />
-        {{ sec.label }}
+    <nav role="tablist" aria-label="Chọn nhóm cấu hình" class="-mb-px flex flex-wrap items-center gap-1 border-b border-line-soft">
+      <template v-for="(sec, index) in SECTIONS" :key="sec.key">
+        <!-- Divider phân nhóm Cấu hình ↔ Tích hợp (trước tab integration đầu tiên). -->
         <span
-          v-if="SECTION_FIELDS[sec.key].some((f) => draft[f] !== undefined)"
-          class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-600"
+          v-if="index > 0 && INTEGRATION_SECTIONS.has(sec.key) && !INTEGRATION_SECTIONS.has(SECTIONS[index - 1].key)"
+          class="mx-2 h-6 w-px self-center bg-line-base"
           aria-hidden="true"
         />
-      </button>
+        <button
+          type="button"
+          :role="'tab'"
+          :aria-selected="activeSection === sec.key"
+          :class="[
+            'inline-flex items-center gap-2 px-4 py-3 text-body font-medium transition-colors duration-200',
+            activeSection === sec.key
+              ? 'text-brand-800 border-b-2 border-brand-700'
+              : 'text-ink-60 hover:text-ink border-b-2 border-transparent',
+          ]"
+          @click="activeSection = sec.key"
+        >
+          <component :is="sec.icon" :size="18" :weight="activeSection === sec.key ? 'duotone' : 'regular'" />
+          {{ sec.label }}
+          <span
+            v-if="(SECTION_FIELDS[sec.key] ?? []).some((f) => draft[f] !== undefined)"
+            class="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-brand-600"
+            aria-hidden="true"
+          />
+        </button>
+      </template>
     </nav>
 
     <!-- LOADING / ERROR -->
@@ -572,9 +631,35 @@ const currentSection = computed(
         </p>
       </Card>
 
-      <!-- SAVE BAR -->
+      <!-- SECTION: CASSO / FACEBOOK LEAD ADS — panel tự quản state + save bar riêng.
+           Khi user còn draft SiteSettings chưa lưu ở các tab khác → hiện cảnh báo
+           + nút quay lại để tránh mất data khi click discard hoặc rời trang. -->
+      <template v-else-if="isIntegrationTab">
+        <div
+          v-if="hasUnsaved"
+          class="flex flex-col gap-1 rounded-md border border-warning/30 bg-warning-soft px-4 py-3 text-caption text-warning sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span class="flex items-center gap-2">
+            <Warning :size="14" weight="duotone" />
+            Bạn còn <strong class="text-ink">{{ changedCount }} mục</strong> chưa lưu ở nhóm cấu hình trung tâm.
+          </span>
+          <button
+            type="button"
+            class="self-start font-medium text-warning hover:underline sm:self-auto"
+            @click="activeSection = firstDirtySiteSettingsSection ?? 'bank'"
+          >
+            Quay lại để lưu →
+          </button>
+        </div>
+        <IntegrationProviderPanel
+          :key="activeSection"
+          :provider="activeSection as 'casso' | 'fb'"
+        />
+      </template>
+
+      <!-- SAVE BAR (chỉ cho SiteSettings tabs — integration panel có save bar nội bộ) -->
       <div
-        v-if="hasUnsaved || saveMutation.isError.value"
+        v-if="!isIntegrationTab && (hasUnsaved || saveMutation.isError.value)"
         class="sticky bottom-0 flex flex-col gap-3 rounded-xl border border-brand-200 bg-paper px-5 py-4 shadow-[0_4px_24px_-12px_rgba(20,83,45,0.15)] sm:flex-row sm:items-center sm:justify-between animate-slide-up motion-reduce:animate-none"
       >
         <div class="flex flex-col gap-0.5">
@@ -615,7 +700,7 @@ const currentSection = computed(
         leave-to-class="opacity-0"
       >
         <div
-          v-if="saveMutation.isSuccess.value && !hasUnsaved"
+          v-if="!isIntegrationTab && saveMutation.isSuccess.value && !hasUnsaved"
           class="inline-flex items-center gap-2 self-start rounded-full border border-success/30 bg-success-soft px-3 py-1.5 text-caption font-medium text-success"
         >
           <Check :size="14" weight="bold" />

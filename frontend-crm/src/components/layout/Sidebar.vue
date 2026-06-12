@@ -9,7 +9,6 @@ import {
   FolderSimple,
   GraduationCap,
   ChartBar,
-  PlugsConnected,
   Gear,
   X,
 } from '@/lib/icons'
@@ -49,7 +48,6 @@ const items = computed<NavItem[]>(() => [
   { to: '/documents', label: 'Hồ sơ', icon: FolderSimple, groups: [ROLES.ADMIN, ROLES.CLERK] },
   { to: '/students', label: 'Học viên', icon: GraduationCap, groups: [ROLES.ADMIN, ROLES.CLERK, ROLES.SALE] },
   { to: '/admin/settings', label: 'Cài đặt', icon: Gear, superuserOnly: true },
-  { to: '/admin/integrations', label: 'Khóa tích hợp', icon: PlugsConnected, superuserOnly: true },
 ])
 
 const visibleItems = computed(() =>

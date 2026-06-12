@@ -72,11 +72,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/admin/Settings.vue'),
         meta: { title: 'Cài đặt trung tâm', superuserOnly: true },
       },
+      // Backward-compat: /admin/integrations cũ → redirect Settings tab Casso.
+      // Bookmark cũ không vỡ. Có thể xóa entry này khi rời Sprint 4+.
       {
         path: 'admin/integrations',
         name: 'admin-integrations',
-        component: () => import('@/pages/admin/Integrations.vue'),
-        meta: { title: 'Khóa tích hợp', superuserOnly: true },
+        redirect: { name: 'admin-settings' },
+        meta: { superuserOnly: true },
       },
     ],
   },
