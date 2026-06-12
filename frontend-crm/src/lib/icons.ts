@@ -62,4 +62,5 @@ export {
   PhImage as Image,
   PhCloudArrowUp as CloudArrowUp,
   PhTrash as Trash,
+  PhCircle as Circle,
 } from '@phosphor-icons/vue'

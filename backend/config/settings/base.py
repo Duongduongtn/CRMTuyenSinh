@@ -12,6 +12,11 @@ if env_file.exists():
     env.read_env(str(env_file))
 
 SECRET_KEY = env.str("DJANGO_SECRET_KEY", default="dev-insecure-change-me")
+
+# AE6: Student JWT sign tách khỏi SECRET_KEY để rotate độc lập + giảm blast radius
+# khi SECRET_KEY leak (CSRF + session cookie + student JWT sẽ KHÔNG cùng compromise).
+# Dev default fallback về SECRET_KEY để không phá local; prod bắt buộc set riêng.
+STUDENT_JWT_SECRET = env.str("STUDENT_JWT_SECRET", default=SECRET_KEY)
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 

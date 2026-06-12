@@ -26,6 +26,8 @@ import {
   Warning,
   FacebookLogo,
   PlugsConnected,
+  Info,
+  Circle,
 } from '@/lib/icons'
 import Card from '@/components/ui/Card.vue'
 import Button from '@/components/ui/Button.vue'
@@ -487,6 +489,58 @@ function onTabKeydown(event: KeyboardEvent, currentIndex: number) {
           hint="Viết hoa, không dấu, đúng tên trên CMND chủ tài khoản. QR sẽ hiển thị tên này."
           @update:model-value="setVal('bank_account_name', $event)"
         />
+
+        <!-- AE6: Trust hint preview QR. Hiển thị status đầy/thiếu của 3 field,
+             user thấy ngay đủ chưa để học viên thực sự nhìn được QR khi đặt cọc. -->
+        <div class="mt-2 flex flex-col gap-2 rounded-md border border-line-soft bg-paper-alt px-4 py-3">
+          <div class="flex items-center gap-2 text-body font-medium text-ink">
+            <Info :size="16" weight="duotone" class="text-brand-700" />
+            Trạng thái QR đặt cọc
+          </div>
+          <ul aria-label="Danh sách kiểm tra cấu hình QR đặt cọc" class="space-y-1 text-caption text-ink-60">
+            <li class="flex items-center gap-2">
+              <component
+                :is="val('bank_code') ? Check : Circle"
+                :size="14"
+                :class="val('bank_code') ? 'text-success' : 'text-ink-40'"
+                aria-hidden="true"
+              />
+              <span class="sr-only">{{ val('bank_code') ? 'Đã hoàn thành: ' : 'Chưa nhập: ' }}</span>
+              Đã chọn ngân hàng
+            </li>
+            <li class="flex items-center gap-2">
+              <component
+                :is="val('bank_account_number') ? Check : Circle"
+                :size="14"
+                :class="val('bank_account_number') ? 'text-success' : 'text-ink-40'"
+                aria-hidden="true"
+              />
+              <span class="sr-only">{{ val('bank_account_number') ? 'Đã hoàn thành: ' : 'Chưa nhập: ' }}</span>
+              Đã nhập số tài khoản
+            </li>
+            <li class="flex items-center gap-2">
+              <component
+                :is="val('bank_account_name') ? Check : Circle"
+                :size="14"
+                :class="val('bank_account_name') ? 'text-success' : 'text-ink-40'"
+                aria-hidden="true"
+              />
+              <span class="sr-only">{{ val('bank_account_name') ? 'Đã hoàn thành: ' : 'Chưa nhập: ' }}</span>
+              Đã nhập tên chủ tài khoản
+            </li>
+          </ul>
+          <div role="status" aria-live="polite" aria-atomic="true">
+            <p
+              v-if="val('bank_code') && val('bank_account_number') && val('bank_account_name')"
+              class="text-caption text-success"
+            >
+              Đã đủ. QR sẽ sinh tự động khi học viên đặt cọc qua trang đặt cọc.
+            </p>
+            <p v-else class="text-caption text-warning">
+              Còn thiếu thông tin. API /qr sẽ trả lỗi 503 tới khi 3 field đủ.
+            </p>
+          </div>
+        </div>
       </Card>
 
       <!-- SECTION: BRAND -->

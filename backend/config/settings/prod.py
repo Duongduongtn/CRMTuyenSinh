@@ -5,7 +5,7 @@
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa
-from .base import SECRET_KEY, env
+from .base import SECRET_KEY, STUDENT_JWT_SECRET, env
 
 DEBUG = False
 
@@ -14,6 +14,20 @@ if SECRET_KEY == "dev-insecure-change-me" or len(SECRET_KEY) < 32:
     raise ImproperlyConfigured(
         "DJANGO_SECRET_KEY chưa được đặt hoặc quá ngắn (cần >= 32 ký tự ngẫu nhiên). "
         "Sinh bằng: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+    )
+
+# AE6: Student JWT sign secret phải TÁCH BIỆT với SECRET_KEY ở prod để rotate
+# độc lập (vd reset JWT mass logout học viên không cần đụng SECRET_KEY làm vỡ
+# CSRF + session staff). Nếu fallback về SECRET_KEY → cấm prod.
+if STUDENT_JWT_SECRET == SECRET_KEY:
+    raise ImproperlyConfigured(
+        "STUDENT_JWT_SECRET phải được set RIÊNG ở prod, không fallback về "
+        "DJANGO_SECRET_KEY. Sinh bằng: python -c \"import secrets; "
+        "print(secrets.token_urlsafe(64))\""
+    )
+if len(STUDENT_JWT_SECRET) < 32:
+    raise ImproperlyConfigured(
+        "STUDENT_JWT_SECRET quá ngắn (cần >= 32 ký tự ngẫu nhiên)."
     )
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])

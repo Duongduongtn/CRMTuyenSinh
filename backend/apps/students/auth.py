@@ -1,8 +1,9 @@
 """JWT token cho học viên — auth = SĐT + 6 số cuối CCCD (chốt 2026-06-11).
 
-Dùng HMAC-SHA256 trên SECRET_KEY Django, payload nhỏ, không phụ thuộc lib bên ngoài
-(PyJWT). Khi cần refresh token rotation phức tạp hơn có thể chuyển sang
-``djangorestframework-simplejwt`` sau.
+Dùng HMAC-SHA256 trên ``settings.STUDENT_JWT_SECRET`` (AE6 tách khỏi SECRET_KEY
+để rotate độc lập + giảm blast radius khi SECRET_KEY leak). Payload nhỏ, không
+phụ thuộc lib bên ngoài (PyJWT). Khi cần refresh token rotation phức tạp hơn có
+thể chuyển sang ``djangorestframework-simplejwt`` sau.
 
 - ``access`` token: 15 phút.
 - ``refresh`` token: 7 ngày (giảm từ 30 ngày để bù entropy 6 số cuối CCCD thấp
@@ -56,7 +57,9 @@ def _b64url_decode(data: str) -> bytes:
 
 
 def _sign(payload_b64: str) -> str:
-    secret = settings.SECRET_KEY.encode("utf-8")
+    # AE6: tách STUDENT_JWT_SECRET khỏi SECRET_KEY. Rotate độc lập, không phá
+    # CSRF + session staff khi cần mass logout học viên.
+    secret = settings.STUDENT_JWT_SECRET.encode("utf-8")
     sig = hmac.new(secret, payload_b64.encode("ascii"), hashlib.sha256).digest()
     return _b64url_encode(sig)
 
