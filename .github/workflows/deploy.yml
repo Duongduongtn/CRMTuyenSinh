@@ -588,10 +588,14 @@ jobs:
         run: |
           # Check BE health qua /healthz/ (light, khong qua /api/ middleware nang).
           # 200 = backend container up + WSGI lo + middleware chain pass.
-          BE_HEALTH=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+          # Verify body content {"ok":true} de tranh SPA fallback gia pass HTTP 200.
+          BE_HEALTH_BODY=$(curl --max-time 10 -sS \
             https://sale.trungtamthanhdat.com/healthz/)
-          echo "BE /healthz/: $BE_HEALTH"
-          [ "$BE_HEALTH" = "200" ] || { echo "BE healthz FAIL: $BE_HEALTH"; exit 1; }
+          echo "BE /healthz/ body: $BE_HEALTH_BODY"
+          echo "$BE_HEALTH_BODY" | grep -q '"ok":[[:space:]]*true' || {
+            echo "BE healthz FAIL - body khong khop Django JSON (co the nginx tra SPA index.html)"
+            exit 1
+          }
 
           # Check BE site-settings route (verify /api/ routing + DB query ok).
           # URL pattern apps/core/urls.py la "site-settings" KHONG trailing slash.
@@ -603,6 +607,19 @@ jobs:
           case "$BE_CODE" in
             200|401|403) echo "BE OK";;
             *) echo "BE FAIL: $BE_CODE"; exit 1;;
+          esac
+
+          # Check nginx proxy /webhook/casso -> Django (KHONG nam trong /api/).
+          # POST body rong: Django expect 503 neu Casso key chua paste vao
+          # IntegrationCredential, hoac 401 neu da paste nhung signature sai.
+          # Neu tra 200 + HTML (SPA fallback) hoac 404 -> nginx proxy chua dung.
+          WH_CODE=$(curl --max-time 10 -sS -o /dev/null -w "%{http_code}" \
+            -X POST -H "Content-Type: application/json" \
+            -d '{}' https://sale.trungtamthanhdat.com/webhook/casso)
+          echo "BE /webhook/casso POST {}: $WH_CODE"
+          case "$WH_CODE" in
+            401|503) echo "Webhook routing OK (chua paste key hoac signature sai)";;
+            *) echo "Webhook FAIL: $WH_CODE - kiem tra nginx location ~ ^/webhook/"; exit 1;;
           esac
 
           # Check FE CRM serve (200 mong doi).

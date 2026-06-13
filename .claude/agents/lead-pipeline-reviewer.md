@@ -53,7 +53,7 @@ Senior CRM domain reviewer chuyên về sales pipeline lead → order → studen
 
 ## Checklist Lead capture endpoint
 
-- [ ] `POST /api/leads/capture` — public, no auth.
+- [ ] `POST /api/leads/` — public, no auth. (DRF DefaultRouter register "leads" → root viewset, không có action /capture).
 - [ ] Rate limit 30/phút/IP, 5/phút/SĐT (chống spam form).
 - [ ] Honeypot field (hidden input bot sẽ fill).
 - [ ] Validate SĐT format VN: `^0\d{9}$` hoặc dùng phonenumbers lib.

@@ -71,7 +71,7 @@ const submitLead = async () => {
   submitting.value = true
   try {
     const { public: { apiBase } } = useRuntimeConfig()
-    await $fetch(`${apiBase}/leads/capture`, {
+    await $fetch(`${apiBase}/leads/`, {
       method: 'POST',
       body: {
         name: form.name || 'Học viên',

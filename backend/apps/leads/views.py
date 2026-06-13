@@ -21,9 +21,11 @@ class LeadCaptureThrottle(AnonRateThrottle):
 
 
 class LeadCaptureView(mixins.CreateModelMixin, viewsets.GenericViewSet):
-    """`POST /api/leads/capture` — public, không cần auth.
+    """`POST /api/leads/` — public, không cần auth.
 
-    Rate limit 30/giờ/IP để chống spam. Honeypot field `website` chống bot đơn giản.
+    DRF DefaultRouter register "leads" + CreateModelMixin map endpoint vào root
+    viewset, không có action /capture. Rate limit 30/giờ/IP chống spam. Honeypot
+    field `website` chống bot đơn giản.
     """
 
     serializer_class = LeadCaptureSerializer

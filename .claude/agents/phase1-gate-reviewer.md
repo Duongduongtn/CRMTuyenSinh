@@ -44,7 +44,7 @@ Phase 1 gate reviewer cho dự án CRM tuyển sinh học lái xe. Mục tiêu: 
 - [ ] SiteSettings hiển thị trên admin, chỉnh được tên/hotline/địa chỉ
 - [ ] 9 Course đầy đủ theo Luật 2025 với học phí + slot
 - [ ] App leads: Lead, LeadContact tạo được; admin modal 2 cột chạy
-- [ ] Lead capture API: `POST /api/leads/capture` public, rate limit, honeypot, validation SĐT
+- [ ] Lead capture API: `POST /api/leads/` public, rate limit, honeypot, validation SĐT
 - [ ] Telegram alert async khi có lead mới
 - [ ] App orders: Convert lead → Enrollment atomic + idempotent
 - [ ] App payments: Casso webhook verify HMAC + atomic Payment + update Order status
@@ -106,7 +106,7 @@ Phase 1 gate reviewer cho dự án CRM tuyển sinh học lái xe. Mục tiêu: 
 - SEO: pass/fail
 
 ## Smoke test gợi ý chạy thủ công
-1. curl POST /api/leads/capture với data hợp lệ
+1. curl POST /api/leads/ với data hợp lệ
 2. Convert lead trong admin
 3. Gửi webhook Casso giả với ngrok
 4. Lighthouse trên localhost:3000

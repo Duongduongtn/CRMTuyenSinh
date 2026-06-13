@@ -204,7 +204,7 @@ apps/leads/
 | Ngày | Task | Deliverable |
 |---|---|---|
 | 1-2 | App `leads`: Lead, LeadContact, LeadReason, LeadNote models | Migration OK |
-| 2-3 | API capture lead `POST /api/leads/capture` (public, có honeypot, rate limit) | curl test OK, lưu DB |
+| 2-3 | API capture lead `POST /api/leads/` (public, có honeypot, rate limit) | curl test OK, lưu DB |
 | 3 | Signal post_save Lead → Celery task Telegram | Nhận tin nhắn Telegram khi tạo lead |
 | 4 | Admin tùy biến lead: modal "Ghi nhận liên hệ" 2 cột (form trái, timeline phải) — clone pattern website_thanhdat | Sale dùng được trên admin |
 | 5 | App `orders`: Enrollment model + API `POST /api/leads/{id}/convert` atomic transaction | Lead → Enrollment idempotent |
