@@ -45,7 +45,13 @@ SECURE_HSTS_PRELOAD = False  # bật khi đã chắc chắn không rollback HTTP
 
 # CSP strict prod — chỉ self + đối tác QR ngân hàng. Khi có CDN, thêm whitelist ở đây.
 CSP_ENABLED = True
-CSP_REPORT_ONLY = env.bool("DJANGO_CSP_REPORT_ONLY", default=False)
+# AF3 (2026-06-13): default TRUE 1 tuần đầu go-live. CSP violation hiển thị qua
+# header `Content-Security-Policy-Report-Only` → DevTools console + Sentry log,
+# KHÔNG block resource. Sau 7 ngày stable không violation → set env
+# DJANGO_CSP_REPORT_ONLY=False (strict mode).
+# Lý do: phase3-prelaunch-reviewer round 1 P1-8 — ship strict ngay có nguy cơ
+# break silent UI inline script chưa whitelist (Django admin, third-party widget).
+CSP_REPORT_ONLY = env.bool("DJANGO_CSP_REPORT_ONLY", default=True)
 CSP_DIRECTIVES = {
     # Hình QR có thể nhúng từ api.vietqr.io khi đặt cọc.
     "img-src": "'self' data: blob: https://api.vietqr.io https:",
@@ -148,19 +154,23 @@ LOGGING["loggers"]["django"]["level"] = "WARNING"  # noqa: F405
 # khi tài khoản Sentry chưa sẵn sàng.
 #
 # Ràng buộc PII: send_default_pii=False bắt buộc — CCCD/SĐT/email là dữ liệu
-# nhạy cảm; KHÔNG đẩy lên Sentry server. Nếu cần stack-trace có thêm context,
-# dùng sentry_sdk.set_context() ở chỗ raise, lọc tay field cho phép.
+# nhạy cảm; KHÔNG đẩy lên Sentry server. AF3 (2026-06-13): bổ sung before_send
+# hook scrub recursive PII trong request.data / json / form body (NĐ 13/2023).
+# Helper ở apps/core/masking.py — extension point khi thêm field nhạy cảm mới.
 SENTRY_DSN = env.str("SENTRY_DSN", default="")
 if SENTRY_DSN:
     import sentry_sdk
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
 
+    from apps.core.masking import scrub_sentry_pii
+
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration()],
         traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
         send_default_pii=False,
+        before_send=scrub_sentry_pii,
         environment=env.str("SENTRY_ENVIRONMENT", default="production"),
         release=env.str("SENTRY_RELEASE", default=""),
     )

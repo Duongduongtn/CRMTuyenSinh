@@ -42,12 +42,17 @@ def send_new_order_telegram(self, enrollment_id: int):
     sale_name = (
         enrollment.created_by.get_display_name() if enrollment.created_by else "(không rõ)"
     )
+    # AF3 (2026-06-13): mask SĐT cùng vector vishing P1-5 (send_payment_telegram).
+    # Đơn mới CHƯA paid → attacker giả "trung tâm" yêu cầu CK cọc nhanh nguy hiểm
+    # hơn payment đã xong → bắt buộc mask layer 1 ở đây.
+    from apps.core.masking import mask_phone
+
     lines = [
         "Đơn mới",
         "",
         f"Mã đơn: {enrollment.code}",
         f"Học viên: {enrollment.student_name}",
-        f"SĐT: {enrollment.student_phone}",
+        f"SĐT: {mask_phone(enrollment.student_phone)}",
         f"Khóa: {enrollment.course.title} ({enrollment.vehicle_class})",
         f"Cọc: {deposit_amount_fmt}",
         f"Sale: {sale_name}",

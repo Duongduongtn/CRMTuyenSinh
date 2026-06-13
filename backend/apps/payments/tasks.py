@@ -46,12 +46,19 @@ def send_payment_telegram(self, payment_id: int):
         payment.method, payment.method
     )
 
+    # AF3 (2026-06-13): mask SĐT vishing defense. Telegram chat nội bộ nhưng
+    # bot_token + chat_id leak ra ngoài (commit, log) sẽ lộ toàn bộ SĐT thanh
+    # toán cho attacker scrape → social engineering "chúng tôi từ trung tâm,
+    # bạn vừa chuyển X đồng...". Giữ 3 số đầu + 3 cuối đủ để kế toán/sale nhận
+    # diện đơn; muốn xem full SĐT → click link CRM ở dòng cuối message.
+    from apps.core.masking import mask_phone
+
     lines = [
         "✅ *Đã nhận thanh toán*",
         "",
         f"📋 `{enrollment.code}`",
         f"👤 {enrollment.student_name}",
-        f"📞 `{enrollment.student_phone}`",
+        f"📞 `{mask_phone(enrollment.student_phone)}`",
         f"🚗 {enrollment.course.title}",
         "",
         f"💰 Lần này: {amount_fmt} ({method_label})",

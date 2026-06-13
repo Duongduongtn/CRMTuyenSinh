@@ -30,6 +30,7 @@ from django.utils.crypto import constant_time_compare
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from apps.core.views import _get_client_ip
 from apps.orders.models import Enrollment
 
 from .models import CassoTransaction, Payment, PaymentMethod, PaymentStatus
@@ -245,7 +246,12 @@ def casso_webhook(request: HttpRequest) -> HttpResponse:
         "X-Casso-Signature", ""
     )
     if not verify_casso_signature(raw_body, header_token, secret):
-        logger.warning("Casso webhook signature không hợp lệ. IP=%s", request.META.get("REMOTE_ADDR"))
+        # AF3 (2026-06-13): dùng _get_client_ip tôn trọng TRUST_X_FORWARDED_FOR.
+        # Trước fix: REMOTE_ADDR luôn là 127.0.0.1 vì nginx proxy → mất IP attacker
+        # thật trong log signature mismatch (cản trở forensic + IP whitelist sau).
+        logger.warning(
+            "Casso webhook signature không hợp lệ. IP=%s", _get_client_ip(request)
+        )
         return JsonResponse({"detail": "Sai chữ ký."}, status=401)
 
     try:

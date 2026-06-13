@@ -1,5 +1,10 @@
 # Core
-Django==5.0.10
+# AF3 (2026-06-13): bump 5.0.10 → 5.2.15 LTS. Django 5.0.x EOL April 2025, không
+# còn security patch. 5.2 LTS support đến April 2028. Đã verify django-unfold,
+# DRF, django-cors-headers, django-solo, django-filter compatible.
+# Pin chính xác để CI deterministic — DRF 3.15.2 có 1 deprecation warning với
+# Django 5.2 (RemovedInDjango60Warning), fix ở DRF 3.16+ release sau.
+Django==5.2.15
 djangorestframework==3.15.2
 django-filter==24.3
 django-cors-headers==4.4.0
